@@ -1,0 +1,149 @@
+// CONFIGURACIÓN MAESTRA DEL SISTEMA REMOTO R02
+const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+const SHEET_NAME = "derechohabientes";
+
+// 🚨 ID VERIFICADO DE TU CARPETA MAESTRA DE GOOGLE DRIVE:
+const DRIVE_FOLDER_ID = "1xSMg_926_XlOPKWsw0H3G_3srbcl_su3";
+
+function doGet(e) {
+  const action = e.parameter.action;
+  
+  if (action === "getAllData") {
+    const offset = parseInt(e.parameter.offset) || 0;
+    const limit = parseInt(e.parameter.limit) || 10000;
+    
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const records = [];
+    
+    const endRow = Math.min(data.length, offset + limit + 1);
+    for (let i = offset + 1; i < endRow; i++) {
+      const row = data[i];
+      const record = {};
+      record["SHEETS_ROW_INDEX"] = i + 1;
+      for (let j = 0; j < headers.length; j++) {
+        record[headers[j]] = row[j];
+      }
+      records.push(record);
+    }
+    
+    const output = {
+      records: records,
+      done: endRow >= data.length,
+      nextOffset: endRow - 1
+    };
+    
+    return ContentService.createTextOutput(JSON.stringify(output)).setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Acción no válida"})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const jsonPayload = JSON.parse(e.postData.contents);
+    if (jsonPayload.action === "sync") {
+      const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+      let data = sheet.getDataRange().getValues();
+      let headers = data[0];
+      
+      // 🧬 BLINDAJE AUTOMÁTICO: Si no existen las columnas de salud en tu Excel, las agrega al final
+      const columnasSalud = ["RECIBIO_VISITA_SALUD", "CUANTAS_VISITAS_SALUD", "OPINION_ATENCION_SALUD", "MOTIVO_NO_VISITA_SALUD", "DESEA_VISITA_SALUD"];
+      let seModificaronCabeceras = false;
+      
+      columnasSalud.forEach(col => {
+        if (headers.indexOf(col) === -1) {
+          sheet.getRange(1, headers.length + 1).setValue(col);
+          headers.push(col);
+          seModificaronCabeceras = true;
+        }
+      });
+      
+      if (seModificaronCabeceras) {
+        SpreadsheetApp.flush();
+      }
+      
+      const res = jsonPayload.records.map(record => {
+        let rowIndex = parseInt(record.SHEETS_ROW_INDEX);
+        
+        // 📁 CREACIÓN DE CARPETA INDIVIDUAL POR BENEFICIARIO
+        let folderIdCiudadano = DRIVE_FOLDER_ID;
+        if (record.DOC_INE_FRONTAL || record.DOC_INE_TRASERA || record.DOC_ACTA || record.DOC_COMPROBANTE || record.DOC_CURP) {
+          const nombre = record.NOMBRE || "";
+          const paterno = record["AP PATERNO"] || "";
+          const materno = record["AP MATERNO"] || "";
+          const nombreCompleto = `${nombre} ${paterno} ${materno}`.trim();
+          
+          folderIdCiudadano = obtenerOCrearCarpetaCiudadano(record.CURP, nombreCompleto);
+        }
+        
+        // 📸 GUARDADO ORGANIZADO DE IMÁGENES
+        record["DOC_INE_FRONTAL"] = guardarImagenEnDrive(folderIdCiudadano, record.CURP, "INE_FRONTAL", record.DOC_INE_FRONTAL);
+        record["DOC_INE_TRASERA"] = guardarImagenEnDrive(folderIdCiudadano, record.CURP, "INE_TRASERA", record.DOC_INE_TRASERA);
+        record["DOC_ACTA"] = guardarImagenEnDrive(folderIdCiudadano, record.CURP, "ACTA_NACIMIENTO", record.DOC_ACTA);
+        record["DOC_COMPROBANTE"] = guardarImagenEnDrive(folderIdCiudadano, record.CURP, "COMPROBANTE", record.DOC_COMPROBANTE);
+        record["DOC_CURP"] = guardarImagenEnDrive(folderIdCiudadano, record.CURP, "CURP_DOCUMENTO", record.DOC_CURP);
+        
+        // Forzar asignación de textos limpios para salud
+        record["RECIBIO_VISITA_SALUD"] = record.RECIBIO_VISITA_SALUD || "";
+        record["CUANTAS_VISITAS_SALUD"] = record.CUANTAS_VISITAS_SALUD || "";
+        record["OPINION_ATENCION_SALUD"] = record.OPINION_ATENCION_SALUD || "";
+        record["MOTIVO_NO_VISITA_SALUD"] = record.MOTIVO_NO_VISITA_SALUD || "";
+        record["DESEA_VISITA_SALUD"] = record.DESEA_VISITA_SALUD || "";
+        
+        const rowData = headers.map(h => record[h] !== undefined ? record[h] : "");
+        
+        if (rowIndex && rowIndex > 1 && rowIndex <= sheet.getLastRow()) {
+          sheet.getRange(rowIndex, 1, 1, headers.length).setValues([rowData]);
+          return "updated";
+        } else {
+          sheet.appendRow(rowData);
+          return "inserted";
+        }
+      });
+      
+      return ContentService.createTextOutput(JSON.stringify({status: "success", results: res})).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function obtenerOCrearCarpetaCiudadano(curpId, nombreCompleto) {
+  try {
+    const carpetaMaestra = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    const nombreCarpeta = `${curpId}_${nombreCompleto.trim()}`;
+    const subCarpetas = carpetaMaestra.getFoldersByName(nombreCarpeta);
+    
+    if (subCarpetas.hasNext()) {
+      return subCarpetas.next().getId();
+    } else {
+      const nuevaCarpeta = carpetaMaestra.createFolder(nombreCarpeta);
+      return nuevaCarpeta.getId();
+    }
+  } catch (err) {
+    return DRIVE_FOLDER_ID;
+  }
+}
+
+function guardarImagenEnDrive(idCarpetaDestino, curpId, tipoDoc, stringBase64) {
+  if (!stringBase64 || !stringBase64.includes("base64,")) return stringBase64 || "";
+  
+  try {
+    const carpetaDestino = DriveApp.getFolderById(idCarpetaDestino);
+    const partes = stringBase64.split("base64,");
+    
+    // Extracción forzada limpia de flujo binario compatible con DriveApp
+    const tipoMime = "image/jpeg"; 
+    const datosPuros = Utilities.base64Decode(partes[1]);
+    const blob = Utilities.newBlob(datosPuros, tipoMime, `${curpId}_${tipoDoc}.jpg`);
+    const archivoCreado = carpetaDestino.createFile(blob);
+    
+    // Habilitar visibilidad pública del enlace url para clics directos desde las celdas
+    archivoCreado.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return archivoCreado.getUrl();
+    
+  } catch (err) {
+    return "ERROR_AL_GUARDAR_FOTO: " + err.toString();
+  }
+}
