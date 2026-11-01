@@ -1595,11 +1595,14 @@ function saveData(event) {
         return;
     }
 
-    const latValue = document.getElementById('f-lat').value; 
-    const lonValue = document.getElementById('f-lon').value;
-    if (latValue.includes("Buscando") || latValue === "" || latValue === "ERROR") {
-        return alert("🛑 Georreferencia incompleta: Espere a que el satélite asigne coordenadas GPS antes de guardar.");
-    }
+   // CÓDIGO NUEVO (Hace que el GPS sea opcional):
+let latValue = document.getElementById('f-lat').value; 
+let lonValue = document.getElementById('f-lon').value;
+
+// Si el satélite no encontró coordenadas o sigue buscando, limpiamos el texto para que no se guarde basura
+if (latValue.includes("Buscando") || latValue === "ERROR") { latValue = ""; }
+if (lonValue.includes("Buscando") || lonValue === "ERROR") { lonValue = ""; }
+
 
     const idValue = document.getElementById('f-id').value; 
     const evaluacionTratoActual = window.currentTratoValue || "";
