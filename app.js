@@ -1498,6 +1498,13 @@ function openForm(item) {
             else { img.src = ""; img.style.display = "none"; } 
         }
     });
+    // Agregar esto en app.js para forzar mayúsculas en la escritura libre
+if (document.getElementById('f-localidad')) {
+    document.getElementById('f-localidad').addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase();
+    });
+}
+
 }
 
 function procesarFotoEvidencia(inputElement, previewId, claveDocumento, wrapperId, buttonId, textoNuevo) {
