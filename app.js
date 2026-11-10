@@ -1147,7 +1147,7 @@ function searchData() {
         return numA - numB;
     });
 
-    resultsContainer.innerHTML = "";
+        resultsContainer.innerHTML = "";
     matchedRecords.slice(0, 30).forEach(item => {
         const div = document.createElement('div'); 
         
@@ -1157,18 +1157,27 @@ function searchData() {
         
         const saludFinal = estaEnColaPendiente && recordEnCola ? recordEnCola['CUANTAS_VISITAS_SALUD'] : (item['CUANTAS_VISITAS_SALUD'] || item['CUANTAS_VISITAS_SALUD '] || "");
 
+        // 💀 DETECTOR EXTRA DE DEFUNCIÓN (Mapeado de Columna SITUACION en Sheets)
+        const situacionInterna = String(item['SITUACION'] || item['SITUACION '] || '').toUpperCase().trim();
+        const esFallecido = situacionInterna.includes("CURP EN ESTATUS DE DEFUNCION") || situacionInterna.includes("DEFUNCION");
+
         const estatusLimpio = String(estatusFinal).toUpperCase().trim();
         const saludLimpia = String(saludFinal).toUpperCase().trim();
 
         let claseColor = "result-item"; 
         let textoIndicador = ' <span style="color:#718096; font-weight:bold; font-size:12px; margin-left:5px;">⏳ No Visitado</span>';
-        // Variable dinámica para cambiar el fondo de la etiqueta SECCIÓN si es rechazo
         let badgeSeccionColor = "#BC955C"; 
         let badgeSeccionTextoColor = "#1F2937";
 
-        if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
+        // Lógica de asignación de clases y semáforos por prioridad
+        if (esFallecido) {
+            claseColor = "result-item status-fallecido";
+            textoIndicador = ' <span style="color:#FFF; font-weight:bold; font-size:12px; margin-left:5px;">🕊️ Finado (No Buscar)</span>';
+            badgeSeccionColor = "#1A1A1A";
+            badgeSeccionTextoColor = "#FFFFFF";
+        }
+        else if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
             claseColor = "result-item status-rechazo-salud";
-            // 🔴 CAMBIO A GUINDA (#621132) para el texto e indicador
             textoIndicador = ' <span style="color:#621132; font-weight:bold; font-size:12px; margin-left:5px;">✓ Rechazo Salud</span>';
             badgeSeccionColor = "#621132";
             badgeSeccionTextoColor = "#FFFFFF";
@@ -1188,14 +1197,22 @@ function searchData() {
 
         div.className = claseColor;
         
-        div.innerHTML = `<div style="font-size:16px; font-weight:700; color:var(--dark-color); margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
-                         <div style="font-size:13px; font-weight:600; color:var(--primary-color); margin-bottom:4px; letter-spacing:0.3px;">
+        div.innerHTML = `<div style="font-size:16px; font-weight:700; var(--dark-color); margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
+                         <div style="font-size:13px; font-weight:600; var(--primary-color); margin-bottom:4px; letter-spacing:0.3px;">
                              CURP: ${item['CURP'] || 'SIN CURP'} | <span style="background-color:${badgeSeccionColor}; color:${badgeSeccionTextoColor}; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; display:inline-block; margin-left:2px;">SECCIÓN: ${item['SECCION_LIMPIA'] || 'S/S'}</span>
                          </div>
-                         <div style="font-size:13px; color:#555555;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
+                         <div style="font-size:13px;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
                          
-        div.onclick = () => openForm(item); resultsContainer.appendChild(div);
+        // 🔒 BLINDAJE INTERACTIVO: Si está fallecido, se cancela el clic para evitar la apertura del formulario
+        if (esFallecido) {
+            div.onclick = () => { alert("📋 REGISTRO BLOQUEADO: Este ciudadano cuenta con estatus de DEFUNCIÓN oficial. No debe ser buscado ni editado en campo."); };
+        } else {
+            div.onclick = () => openForm(item); 
+        }
+        
+        resultsContainer.appendChild(div);
     });
+
 }
 
 
