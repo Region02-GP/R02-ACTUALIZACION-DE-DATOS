@@ -1149,7 +1149,7 @@ function searchData() {
 
           resultsContainer.innerHTML = "";
     matchedRecords.slice(0, 30).forEach(item => {
-               const div = document.createElement('div'); 
+                      const div = document.createElement('div'); 
         
         const estaEnColaPendiente = pendingSync.some(p => p['CURP'] === item['CURP']); 
         const recordEnCola = pendingSync.find(p => p['CURP'] === item['CURP']);
@@ -1157,20 +1157,24 @@ function searchData() {
         
         const saludFinal = estaEnColaPendiente && recordEnCola ? recordEnCola['CUANTAS_VISITAS_SALUD'] : (item['CUANTAS_VISITAS_SALUD'] || item['CUANTAS_VISITAS_SALUD '] || "");
 
-        // 💀 RASTREO MULTI-PROPIEDAD ABSOLUTO PARA LA COLUMNA Q (SITUACION)
+        // 💀 RASTREO MULTI-PROPIEDAD AGRESIVO DE LA HOJA DE EXCEL
         let campoSituacion = "";
-        if (item['SITUACION'] !== undefined) campoSituacion = String(item['SITUACION']);
-        else if (item['SITUACION '] !== undefined) campoSituacion = String(item['SITUACION ']);
-        else if (item['situacion'] !== undefined) campoSituacion = String(item['situacion']);
-        else if (item['Situacion'] !== undefined) campoSituacion = String(item['Situacion']);
+        
+        // Escaneamos dinámicamente cualquier propiedad del objeto que contenga indicios de la palabra situación
+        Object.keys(item).forEach(key => {
+            if (key.toUpperCase().trim().includes("SITUACION") || key.toUpperCase().trim() === "SITUACION") {
+                campoSituacion = String(item[key]);
+            }
+        });
 
         const situacionCadena = campoSituacion.toUpperCase().trim();
         
-        // Coincidencia estricta con el texto de tu Sheets
+        // Captura cualquier variante de defunción oficial proveniente de la columna Q
         const esFallecido = situacionCadena.includes("DEFUNCION") || 
                             situacionCadena.includes("DEFUNCIÓN") || 
                             situacionCadena.includes("FALLECIDO") ||
-                            situacionCadena.includes("ESTATUS DE DEFUNCION");
+                            situacionCadena.includes("ESTATUS DE DEFUNCION") ||
+                            situacionCadena.includes("CURP EN ESTATUS");
 
         const estatusLimpio = String(estatusFinal).toUpperCase().trim();
         const saludLimpia = String(saludFinal).toUpperCase().trim();
@@ -1181,13 +1185,13 @@ function searchData() {
         let badgeSeccionTextoColor = "#1F2937";
         let estiloFallecidoInline = "";
 
-        // EVALUACIÓN DEL SEMÁFORO (La defunción es prioridad #1)
+        // EVALUACIÓN PRIORITARIA DEL SEMÁFORO (Fallecido es la prioridad absoluta)
         if (esFallecido) {
             claseColor = "result-item status-fallecido";
-            textoIndicador = ' <span style="color:#FFC107; font-weight:900; font-size:13px; margin-left:5px;">🕊️ FINADO (NO BUSCAR)</span>';
+            textoIndicador = ' <span style="color:#FFC107; font-weight:900; font-size:13px; margin-left:5px; background:#000000; padding:2px 6px; border-radius:4px;">🕊️ FINADO (NO BUSCAR)</span>';
             badgeSeccionColor = "#000000";
             badgeSeccionTextoColor = "#FFFFFF";
-            estiloFallecidoInline = "border-left: 7px solid #000000 !important; background-color: #212529 !important; color: #FFFFFF !important; opacity: 0.90;";
+            estiloFallecidoInline = "border-left: 8px solid #000000 !important; background-color: #212529 !important; color: #FFFFFF !important; opacity: 0.95 !important; box-shadow: inset 4px 0 0 #000 !important;";
         }
         else if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
             claseColor = "result-item status-rechazo-salud";
@@ -1210,12 +1214,12 @@ function searchData() {
 
         div.className = claseColor;
         
-        // Si es fallecido, inyectamos el estilo oscuro directamente desde JavaScript para asegurar que pinte
-        if (esFallecido && estiloFallecidoInline !== "") {
+        // Forzar estilos oscuros en tiempo de renderizado si la condición de fallecido es afirmativa
+        if (esFallecido) {
             div.style.cssText = estiloFallecidoInline;
         }
         
-        // Forzamos colores legibles según el estatus
+        // Normalización de colores internos de las fuentes para evitar herencias de estilos claros
         const colorTextoInterno = esFallecido ? "#FFFFFF" : "var(--dark-color)";
         const colorCalleInterno = esFallecido ? "#E2E8F0" : "#555555";
         
@@ -1225,7 +1229,7 @@ function searchData() {
                          </div>
                          <div style="font-size:13px; color:${colorCalleInterno} !important;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
                          
-        // Bloqueo de clics para finados
+        // Bloqueo total de interacción táctil
         if (esFallecido) {
             div.onclick = (e) => { 
                 e.stopPropagation();
@@ -1236,6 +1240,7 @@ function searchData() {
         }
         
         resultsContainer.appendChild(div);
+
     });
 }
 
