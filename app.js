@@ -1157,9 +1157,9 @@ function searchData() {
         
         const saludFinal = estaEnColaPendiente && recordEnCola ? recordEnCola['CUANTAS_VISITAS_SALUD'] : (item['CUANTAS_VISITAS_SALUD'] || item['CUANTAS_VISITAS_SALUD '] || "");
 
-        // 💀 DETECTOR EXTRA DE DEFUNCIÓN (Mapeado de Columna SITUACION en Sheets)
-        const situacionInterna = String(item['SITUACION'] || item['SITUACION '] || '').toUpperCase().trim();
-        const esFallecido = situacionInterna.includes("CURP EN ESTATUS DE DEFUNCION") || situacionInterna.includes("DEFUNCION");
+               // 💀 DETECTOR ULTRA-FLEXIBLE DE DEFUNCIÓN (Mapea de forma segura cualquier variante de texto)
+        const situacionLimpia = String(item['SITUACION'] || item['SITUACION '] || item['situacion'] || '').toUpperCase().trim();
+        const esFallecido = situacionLimpia.includes("DEFUNCION") || situacionLimpia.includes("DEFUNCIÓN") || situacionLimpia.includes("FALLECIDO");
 
         const estatusLimpio = String(estatusFinal).toUpperCase().trim();
         const saludLimpia = String(saludFinal).toUpperCase().trim();
@@ -1169,11 +1169,11 @@ function searchData() {
         let badgeSeccionColor = "#BC955C"; 
         let badgeSeccionTextoColor = "#1F2937";
 
-        // Lógica de asignación de clases y semáforos por prioridad
+        // 🔥 CORRECCIÓN: La defunción DEBE ir al principio de la evaluación para ganarle a los demás estatus
         if (esFallecido) {
             claseColor = "result-item status-fallecido";
-            textoIndicador = ' <span style="color:#FFF; font-weight:bold; font-size:12px; margin-left:5px;">🕊️ Finado (No Buscar)</span>';
-            badgeSeccionColor = "#1A1A1A";
+            textoIndicador = ' <span style="color:#FFFFFF; font-weight:bold; font-size:12px; margin-left:5px;">🕊️ Finado (No Buscar)</span>';
+            badgeSeccionColor = "#111111";
             badgeSeccionTextoColor = "#FFFFFF";
         }
         else if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
@@ -1190,12 +1190,17 @@ function searchData() {
             claseColor = "result-item status-nolocalizado";
             textoIndicador = ' <span style="color:#C5221F; font-weight:bold; font-size:12px; margin-left:5px;">✗ No Localizado</span>';
         } 
+        else if (estatusLimpio === "NO LOCALIZADO") { // Asegurar compatibilidad si no trae datos de salud
+            claseColor = "result-item status-nolocalizado";
+            textoIndicador = ' <span style="color:#C5221F; font-weight:bold; font-size:12px; margin-left:5px;">✗ No Localizado</span>';
+        }
         else if (estatusLimpio === "LOCALIZADO") {
             claseColor = "result-item status-localizado";
             textoIndicador = ' <span style="color:#137333; font-weight:bold; font-size:12px; margin-left:5px;">✓ Localizado</span>';
         }
 
         div.className = claseColor;
+
         
         div.innerHTML = `<div style="font-size:16px; font-weight:700; var(--dark-color); margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
                          <div style="font-size:13px; font-weight:600; var(--primary-color); margin-bottom:4px; letter-spacing:0.3px;">
