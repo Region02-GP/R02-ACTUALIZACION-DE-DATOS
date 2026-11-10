@@ -1149,7 +1149,7 @@ function searchData() {
 
           resultsContainer.innerHTML = "";
     matchedRecords.slice(0, 30).forEach(item => {
-        const div = document.createElement('div'); 
+               const div = document.createElement('div'); 
         
         const estaEnColaPendiente = pendingSync.some(p => p['CURP'] === item['CURP']); 
         const recordEnCola = pendingSync.find(p => p['CURP'] === item['CURP']);
@@ -1157,18 +1157,20 @@ function searchData() {
         
         const saludFinal = estaEnColaPendiente && recordEnCola ? recordEnCola['CUANTAS_VISITAS_SALUD'] : (item['CUANTAS_VISITAS_SALUD'] || item['CUANTAS_VISITAS_SALUD '] || "");
 
-        // 💀 ESCANEO AGRESIVO DE LA COLUMNA Q (Busca la palabra DEFUNCION en cualquier variante de cabecera)
-        const txtSituacion1 = String(item['SITUACION'] || '').toUpperCase();
-        const txtSituacion2 = String(item['SITUACION '] || '').toUpperCase();
-        const txtSituacion3 = String(item['situacion'] || '').toUpperCase();
-        const txtSituacion4 = String(item['Situacion'] || '').toUpperCase();
+        // 💀 RASTREO MULTI-PROPIEDAD ABSOLUTO PARA LA COLUMNA Q (SITUACION)
+        let campoSituacion = "";
+        if (item['SITUACION'] !== undefined) campoSituacion = String(item['SITUACION']);
+        else if (item['SITUACION '] !== undefined) campoSituacion = String(item['SITUACION ']);
+        else if (item['situacion'] !== undefined) campoSituacion = String(item['situacion']);
+        else if (item['Situacion'] !== undefined) campoSituacion = String(item['Situacion']);
+
+        const situacionCadena = campoSituacion.toUpperCase().trim();
         
-        const esFallecido = txtSituacion1.includes("DEFUNCION") || 
-                            txtSituacion2.includes("DEFUNCION") || 
-                            txtSituacion3.includes("DEFUNCION") || 
-                            txtSituacion4.includes("DEFUNCION") ||
-                            txtSituacion1.includes("FALLECIDO") ||
-                            txtSituacion2.includes("FALLECIDO");
+        // Coincidencia estricta con el texto de tu Sheets
+        const esFallecido = situacionCadena.includes("DEFUNCION") || 
+                            situacionCadena.includes("DEFUNCIÓN") || 
+                            situacionCadena.includes("FALLECIDO") ||
+                            situacionCadena.includes("ESTATUS DE DEFUNCION");
 
         const estatusLimpio = String(estatusFinal).toUpperCase().trim();
         const saludLimpia = String(saludFinal).toUpperCase().trim();
@@ -1177,16 +1179,15 @@ function searchData() {
         let textoIndicador = ' <span style="color:#718096; font-weight:bold; font-size:12px; margin-left:5px;">⏳ No Visitado</span>';
         let badgeSeccionColor = "#BC955C"; 
         let badgeSeccionTextoColor = "#1F2937";
-        
-        // Estilos inline de emergencia para garantizar el color oscuro inmediatamente
-        let estiloInlineEmergencia = "";
+        let estiloFallecidoInline = "";
 
+        // EVALUACIÓN DEL SEMÁFORO (La defunción es prioridad #1)
         if (esFallecido) {
             claseColor = "result-item status-fallecido";
-            textoIndicador = ' <span style="color:#FF0000; font-weight:black; font-size:13px; margin-left:5px; background:#FFF; padding:1px 4px; border-radius:3px;">🕊️ FINADO (NO BUSCAR)</span>';
-            badgeSeccionColor = "#111111";
+            textoIndicador = ' <span style="color:#FFC107; font-weight:900; font-size:13px; margin-left:5px;">🕊️ FINADO (NO BUSCAR)</span>';
+            badgeSeccionColor = "#000000";
             badgeSeccionTextoColor = "#FFFFFF";
-            estiloInlineEmergencia = "border-left: 7px solid #000000 !important; background-color: #212529 !important; color: #FFFFFF !important; opacity: 0.95;";
+            estiloFallecidoInline = "border-left: 7px solid #000000 !important; background-color: #212529 !important; color: #FFFFFF !important; opacity: 0.90;";
         }
         else if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
             claseColor = "result-item status-rechazo-salud";
@@ -1208,11 +1209,13 @@ function searchData() {
         }
 
         div.className = claseColor;
-        if (estiloInlineEmergencia !== "") {
-            div.style.cssText = estiloInlineEmergencia;
+        
+        // Si es fallecido, inyectamos el estilo oscuro directamente desde JavaScript para asegurar que pinte
+        if (esFallecido && estiloFallecidoInline !== "") {
+            div.style.cssText = estiloFallecidoInline;
         }
         
-        // Renderizado del contenido interno (forzamos color blanco si es finado)
+        // Forzamos colores legibles según el estatus
         const colorTextoInterno = esFallecido ? "#FFFFFF" : "var(--dark-color)";
         const colorCalleInterno = esFallecido ? "#E2E8F0" : "#555555";
         
@@ -1222,6 +1225,7 @@ function searchData() {
                          </div>
                          <div style="font-size:13px; color:${colorCalleInterno} !important;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
                          
+        // Bloqueo de clics para finados
         if (esFallecido) {
             div.onclick = (e) => { 
                 e.stopPropagation();
@@ -1233,9 +1237,8 @@ function searchData() {
         
         resultsContainer.appendChild(div);
     });
-
-
 }
+
 
 
 function buscarLocalidadesEnPantalla() {
