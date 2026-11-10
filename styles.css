@@ -520,3 +520,23 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* =========================================================================
+   ESTADO ADICIONAL SEMÁFORO: PERSONAS FALLECIDAS (DESHABILITADO)
+   ========================================================================= */
+.result-item.status-fallecido {
+    border-left: 5px solid #1A1A1A !important; /* Borde negro sólido */
+    background-color: #2D3748 !important;     /* Gris oscuro / negro antirreflejo */
+    color: #FFFFFF !important;                 /* Texto blanco de alta visibilidad */
+    cursor: not-allowed !important;            /* Cambia el cursor para indicar bloqueo */
+    opacity: 0.85;                             /* Sutil opacidad institucional */
+}
+
+.result-item.status-fallecido:hover {
+    background-color: #2D3748 !important;     /* Deshabilita el cambio de color al pasar el mouse */
+    padding-left: 16px !important;             /* Bloquea el desplazamiento táctil */
+}
+
+.result-item.status-fallecido div,
+.result-item.status-fallecido span {
+    color: #FFFFFF !important;                 /* Fuerza a los textos internos a brillar en blanco */
+}
