@@ -1100,11 +1100,29 @@ function preloadDatabaseToMemory() {
 
 
 function searchData() {
-    const query = document.getElementById('search-input').value.toLowerCase().trim(); const resultsContainer = document.getElementById('search-results');
-    resultsContainer.innerHTML = ""; if (query.length < 2) return; // Mantiene tu inicio desde el segundo dígito
+    const query = document.getElementById('search-input').value.toLowerCase().trim(); 
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = ""; 
+    if (query.length < 2) return;
 
-    const brigadistaActivo = AUTHORIZED_CURPS[currentUser.curp]; const municipioBrigadista = brigadistaActivo ? brigadistaActivo.municipio.toUpperCase().trim() : "";
-    const searchTokens = query.split(/\s+/); let matchedRecords = [];
+    // 🛡️ BLINDAJE DE EMERGENCIA: Si la RAM está vacía pero IndexedDB sí tiene datos, forzamos la carga síncrona inmediata
+    if (!localMemoryDatabase || localMemoryDatabase.length === 0) {
+        if (db) {
+            db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (e) => {
+                localMemoryDatabase = e.target.result || [];
+                // Re-ejecuta la búsqueda una vez que los datos terminaron de subir a la RAM
+                searchData();
+            };
+        }
+        return; // Detiene esta ejecución en lo que se llena la base de datos
+    }
+
+    const brigadistaActivo = AUTHORIZED_CURPS[currentUser.curp]; 
+    const municipioBrigadista = brigadistaActivo ? brigadistaActivo.municipio.toUpperCase().trim() : "";
+    const searchTokens = query.split(/\s+/); 
+    let matchedRecords = [];
+
+    // ... Aquí continúa el ciclo 'for' que ya tienes y el renderizado slice(0, 30) con el Object.keys que pusimos antes ...
 
     for (let i = 0; i < localMemoryDatabase.length; i++) {
         const item = localMemoryDatabase[i]; if (!item) continue;
