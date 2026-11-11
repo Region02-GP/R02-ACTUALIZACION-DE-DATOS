@@ -1057,39 +1057,76 @@ function login() {
 }
 async function downloadAllDataMassive() {
     const btn = document.getElementById('btn-massive-download');
-    const progressContainer = document.getElementById('progress-container'); const progressBar = document.getElementById('progress-bar'); const progressText = document.getElementById('progress-text');
+    const progressContainer = document.getElementById('progress-container'); 
+    const progressBar = document.getElementById('progress-bar'); 
+    const progressText = document.getElementById('progress-text');
+    
     if (!db) return alert("La base de datos local aún no está lista.");
     
-    btn.disabled = true; progressContainer.style.display = "block";
-    let offset = 0, limit = 10000, isDone = false, totalCargados = 0;
+    btn.disabled = true; 
+    btn.innerText = "⏳ Conectando con el servidor...";
+    progressContainer.style.display = "block";
+    progressBar.style.width = "5%";
+    progressBar.innerText = "Iniciando...";
+    progressText.innerText = "Preparando memoria del dispositivo...";
+    
+    let offset = 0, limit = 2500, isDone = false, totalCargados = 0;
     db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear();
     
     try {
         while (!isDone) {
-            progressText.innerText = `Descargando registros: ${totalCargados} acumulados...`;
+            progressText.innerText = `📡 Descargando paquete desde la nube... (${totalCargados} listos)`;
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
-            const response = await fetch(url); const data = await response.json();
+            const response = await fetch(url); 
+            const data = await response.json();
             
+            const totalEsperado = data.totalRecords || 25000;
+
             if (data && data.records && data.records.length > 0) {
-                const tx = db.transaction(STORE_NAME, "readwrite"); const store = tx.objectStore(STORE_NAME);
+                progressText.innerText = `💾 Guardando en teléfono... (${totalCargados} de ${totalEsperado})`;
+                const tx = db.transaction(STORE_NAME, "readwrite"); 
+                const store = tx.objectStore(STORE_NAME);
+                
                 data.records.forEach(record => {
                     if (record && record.CURP) {
-                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); store.put(record); totalCargados++;
+                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); 
+                        store.put(record); 
+                        totalCargados++;
                     }
                 });
                 await new Promise((resolve) => { tx.oncomplete = resolve; });
             }
-            isDone = data.done === true || data.records.length === 0; offset = data.nextOffset || (offset + limit);
-            progressBar.style.width = `${Math.min(100, Math.round((offset / 25000) * 100))}%`;
+            
+            isDone = data.done === true || data.records.length === 0; 
+            offset = data.nextOffset || (offset + limit);
+            
+            const porcentaje = isDone ? 100 : Math.min(98, Math.round((totalCargados / totalEsperado) * 100));
+            progressBar.style.width = `${porcentaje}%`;
+            progressBar.innerText = `${porcentaje}%`;
+            progressText.innerText = `✅ Procesados: ${totalCargados} de ${totalEsperado} derechohabientes`;
         }
-        progressText.innerText = `¡Descarga completa! ${totalCargados} registros listos.`;
+        
+        progressBar.style.background = "#236947";
+        progressText.innerText = `🎉 ¡Descarga completada! ${totalCargados} registros listos en el teléfono.`;
         
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
-        alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros en tu teléfono.`); 
-        changeScreen('screen-search');
-    } catch (error) { alert(`Error: ${error.message}`); } finally { btn.disabled = false; }
+        
+        setTimeout(() => {
+            alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros correctamente.`); 
+            changeScreen('screen-search');
+        }, 500);
+        
+    } catch (error) { 
+        progressBar.style.background = "#b91c1c";
+        progressText.innerText = "❌ Error durante la descarga.";
+        alert(`Error de conexión: ${error.message}`); 
+    } finally { 
+        btn.disabled = false; 
+        btn.innerText = "📥 Descargar Derechohabientes";
+    }
 }
+
 
 let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
