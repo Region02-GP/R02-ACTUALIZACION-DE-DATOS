@@ -1065,41 +1065,59 @@ async function downloadAllDataMassive() {
     if (!db) return alert("La base de datos local aún no está lista.");
     
     btn.disabled = true; 
-    btn.innerText = "⏳ Conectando con el servidor...";
+    btn.innerText = "⚡ Descargando padrón estatal...";
     progressContainer.style.display = "block";
+    progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
     progressBar.style.width = "5%";
     if (progressLabel) progressLabel.innerText = "5% - Iniciando...";
     progressText.innerText = "Preparando memoria del dispositivo...";
     
-    let offset = 0, limit = 2500, isDone = false, totalCargados = 0;
-    db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear();
+    let offset = 0, limit = 5000, isDone = false, totalCargados = 0;
+    
+    // Limpiar base de datos anterior antes de iniciar la descarga limpia
+    await new Promise((resolve) => {
+        const txClear = db.transaction(STORE_NAME, "readwrite");
+        txClear.objectStore(STORE_NAME).clear();
+        txClear.oncomplete = resolve;
+    });
     
     try {
         while (!isDone) {
-            progressText.innerText = `📡 Descargando paquete... (${totalCargados} listos)`;
+            progressText.innerText = `📡 Descargando bloque estatal... (${totalCargados} listos)`;
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
             const response = await fetch(url); 
             const data = await response.json();
             
             const totalEsperado = data.totalRecords || 25000;
 
-            if (data && data.records && data.records.length > 0) {
-                progressText.innerText = `💾 Guardando en teléfono... (${totalCargados} de ${totalEsperado})`;
-                const tx = db.transaction(STORE_NAME, "readwrite"); 
-                const store = tx.objectStore(STORE_NAME);
+            if (data && data.rows && data.rows.length > 0 && data.headers) {
+                progressText.innerText = `💾 Guardando en dispositivo... (${totalCargados} de ${totalEsperado})`;
                 
-                data.records.forEach(record => {
-                    if (record && record.CURP) {
-                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); 
-                        store.put(record); 
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, "readwrite"); 
+                    const store = tx.objectStore(STORE_NAME);
+                    const headers = data.headers;
+                    const curpIdx = headers.indexOf("CURP");
+
+                    for (let i = 0; i < data.rows.length; i++) {
+                        const rowArr = data.rows[i];
+                        if (!rowArr || curpIdx === -1 || !rowArr[curpIdx]) continue;
+
+                        const record = {};
+                        for (let j = 0; j < headers.length; j++) {
+                            record[headers[j]] = rowArr[j];
+                        }
+                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim();
+                        store.put(record);
                         totalCargados++;
                     }
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
                 });
-                await new Promise((resolve) => { tx.oncomplete = resolve; });
             }
             
-            isDone = data.done === true || data.records.length === 0; 
+            isDone = data.done === true || !data.rows || data.rows.length === 0; 
             offset = data.nextOffset || (offset + limit);
             
             const porcentaje = isDone ? 100 : Math.min(98, Math.round((totalCargados / totalEsperado) * 100));
@@ -1110,16 +1128,17 @@ async function downloadAllDataMassive() {
         
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#236947";
+        progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
-        progressText.innerText = `🎉 ¡Descarga completada! ${totalCargados} registros listos en el teléfono.`;
+        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros estatales guardados.`;
         
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
         
         setTimeout(() => {
-            alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros correctamente.`); 
+            alert(`✅ DESCARGA ESTATAL EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
             changeScreen('screen-search');
-        }, 500);
+        }, 400);
         
     } catch (error) { 
         progressBar.classList.remove('progress-bar-animated');
