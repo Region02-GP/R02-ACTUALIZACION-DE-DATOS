@@ -1962,7 +1962,7 @@ async function syncWithSheets() {
 
     try {
         while (pendingSync.length > 0) {
-            const expedienteActual = pendingSync;
+            const expedienteActual = pendingSync[0];
             enviadosExitosos++;
             
             mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})`);
@@ -1974,14 +1974,12 @@ async function syncWithSheets() {
                 body: JSON.stringify({ action: "sync", records: [expedienteActual] }) 
             });
 
-            // Mover este expediente ya enviado al historial y sacarlo de pendientes de inmediato
             syncedHistory.push(expedienteActual);
             localStorage.setItem('syncedHistory', JSON.stringify(syncedHistory));
             
             pendingSync.shift();
             localStorage.setItem('pendingSync', JSON.stringify(pendingSync));
             
-            // Actualizar métricas en tiempo real
             updateLocalCounter();
         }
         
@@ -1995,7 +1993,6 @@ async function syncWithSheets() {
         alert(`⚠️ Transmisión interrumpida: Se lograron subir ${enviadosExitosos - 1} expedientes. Los restantes siguen guardados en su teléfono para intentarlo más tarde.`); 
     }
 }
-
 
 function downloadBackupCSV() {
     const allVisitsOfDay = pendingSync.concat(syncedHistory); 
