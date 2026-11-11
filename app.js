@@ -2033,7 +2033,7 @@ function clearLocalStorage() {
 
 function seleccionarTrato(opcion) { 
     window.currentTratoValue = opcion.toUpperCase(); 
-    actualizarEstilosBotonesTrato(); // Cambiado a "Estilos" en español
+    actualizarEstilosBotonesTrato();
 }
 
 function actualizarEstilosBotonesTrato() {
@@ -2061,10 +2061,5 @@ function actualizarEstilosBotonesTrato() {
     }
 }
 
-function vincularEventosProgresoFormulario() {
-    // Función desactivada de forma segura
-}
-
-function calcularPorcentajeProgresoFormulario() {
-    // Función desactivada de forma segura
-}
+function vincularEventosProgresoFormulario() {}
+function calcularPorcentajeProgresoFormulario() {}
