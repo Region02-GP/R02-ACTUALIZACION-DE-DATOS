@@ -1175,24 +1175,16 @@ function searchData() {
         
         const saludFinal = estaEnColaPendiente && recordEnCola ? recordEnCola['CUANTAS_VISITAS_SALUD'] : (item['CUANTAS_VISITAS_SALUD'] || item['CUANTAS_VISITAS_SALUD '] || "");
 
-        // 💀 RASTREO MULTI-PROPIEDAD AGRESIVO DE LA HOJA DE EXCEL
-        let campoSituacion = "";
-        
-        // Escaneamos dinámicamente cualquier propiedad del objeto que contenga indicios de la palabra situación
-        Object.keys(item).forEach(key => {
-            if (key.toUpperCase().trim().includes("SITUACION") || key.toUpperCase().trim() === "SITUACION") {
-                campoSituacion = String(item[key]);
-            }
-        });
+               // 💀 RASTREO EXACTO EN COLUMNA CAUSAL (COLUMNA Q) Y SITUACIÓN
+        const causalValor = String(item['CAUSAL'] || item['CAUSAL '] || item['Causal'] || '').toUpperCase().trim();
+        const situacionValor = String(item['SITUACION'] || item['SITUACION '] || '').toUpperCase().trim();
+        const textoCompletoEstatus = `${causalValor} ${situacionValor}`;
 
-        const situacionCadena = campoSituacion.toUpperCase().trim();
-        
-        // Captura cualquier variante de defunción oficial proveniente de la columna Q
-        const esFallecido = situacionCadena.includes("DEFUNCION") || 
-                            situacionCadena.includes("DEFUNCIÓN") || 
-                            situacionCadena.includes("FALLECIDO") ||
-                            situacionCadena.includes("ESTATUS DE DEFUNCION") ||
-                            situacionCadena.includes("CURP EN ESTATUS");
+        // Detecta cualquier variante de defunción en CAUSAL o SITUACION
+        const esFallecido = textoCompletoEstatus.includes("DEFUNCION") || 
+                            textoCompletoEstatus.includes("DEFUNCIÓN") || 
+                            textoCompletoEstatus.includes("FALLECIDO") ||
+                            textoCompletoEstatus.includes("FINADO");
 
         const estatusLimpio = String(estatusFinal).toUpperCase().trim();
         const saludLimpia = String(saludFinal).toUpperCase().trim();
@@ -1201,36 +1193,39 @@ function searchData() {
         let textoIndicador = ' <span style="color:#718096; font-weight:bold; font-size:12px; margin-left:5px;">⏳ No Visitado</span>';
         let badgeSeccionColor = "#BC955C"; 
         let badgeSeccionTextoColor = "#1F2937";
-        let estiloFallecidoInline = "";
 
-        // EVALUACIÓN PRIORITARIA DEL SEMÁFORO (Fallecido es la prioridad absoluta)
+        // 1. PRIORIDAD ABSOLUTA: DEFUNCIÓN (Mismo comportamiento estructurado que Localizado/No Localizado)
         if (esFallecido) {
             claseColor = "result-item status-fallecido";
-            textoIndicador = ' <span style="color:#FFC107; font-weight:900; font-size:13px; margin-left:5px; background:#000000; padding:2px 6px; border-radius:4px;">🕊️ FINADO (NO BUSCAR)</span>';
+            textoIndicador = ' <span style="color:#FFC107; font-weight:900; font-size:12px; margin-left:5px; background:#000000; padding:2px 6px; border-radius:4px;">🕊️ DEFUNCIÓN (NO BUSCAR)</span>';
             badgeSeccionColor = "#000000";
             badgeSeccionTextoColor = "#FFFFFF";
-            estiloFallecidoInline = "border-left: 8px solid #000000 !important; background-color: #212529 !important; color: #FFFFFF !important; opacity: 0.95 !important; box-shadow: inset 4px 0 0 #000 !important;";
-        }
+        } 
+        // 2. RECHAZO DE SALUD
         else if (estatusLimpio === "LOCALIZADO" && saludLimpia === "NO_QUIERE") {
             claseColor = "result-item status-rechazo-salud";
             textoIndicador = ' <span style="color:#621132; font-weight:bold; font-size:12px; margin-left:5px;">✓ Rechazo Salud</span>';
             badgeSeccionColor = "#621132";
             badgeSeccionTextoColor = "#FFFFFF";
         } 
+        // 3. PENDIENTE CON RECHAZO
         else if (estatusLimpio === "" && saludLimpia === "NO_QUIERE") {
             claseColor = "result-item status-pendiente-rechazo";
             textoIndicador = ' <span style="color:#621132; font-weight:bold; font-size:12px; margin-left:5px;">⏳ Pendiente con Rechazo</span>';
         } 
+        // 4. NO LOCALIZADO
         else if (estatusLimpio === "NO LOCALIZADO") {
             claseColor = "result-item status-nolocalizado";
             textoIndicador = ' <span style="color:#C5221F; font-weight:bold; font-size:12px; margin-left:5px;">✗ No Localizado</span>';
         } 
+        // 5. LOCALIZADO
         else if (estatusLimpio === "LOCALIZADO") {
             claseColor = "result-item status-localizado";
             textoIndicador = ' <span style="color:#137333; font-weight:bold; font-size:12px; margin-left:5px;">✓ Localizado</span>';
         }
 
         div.className = claseColor;
+
         
         // Forzar estilos oscuros en tiempo de renderizado si la condición de fallecido es afirmativa
         if (esFallecido) {
@@ -1241,23 +1236,23 @@ function searchData() {
         const colorTextoInterno = esFallecido ? "#FFFFFF" : "var(--dark-color)";
         const colorCalleInterno = esFallecido ? "#E2E8F0" : "#555555";
         
-        div.innerHTML = `<div style="font-size:16px; font-weight:700; color:${colorTextoInterno} !important; margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
-                         <div style="font-size:13px; font-weight:600; color:${colorTextoInterno} !important; margin-bottom:4px; letter-spacing:0.3px;">
+                div.innerHTML = `<div style="font-size:16px; font-weight:700; margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
+                         <div style="font-size:13px; font-weight:600; margin-bottom:4px; letter-spacing:0.3px;">
                              CURP: ${item['CURP'] || 'SIN CURP'} | <span style="background-color:${badgeSeccionColor}; color:${badgeSeccionTextoColor}; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; display:inline-block; margin-left:2px;">SECCIÓN: ${item['SECCION_LIMPIA'] || 'S/S'}</span>
                          </div>
-                         <div style="font-size:13px; color:${colorCalleInterno} !important;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
+                         <div style="font-size:13px; opacity:0.9;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
                          
-        // Bloqueo total de interacción táctil
         if (esFallecido) {
             div.onclick = (e) => { 
                 e.stopPropagation();
-                alert("🛑 REGISTRO BLOQUEADO\n\nEste ciudadano cuenta con estatus de DEFUNCIÓN verificado en la plataforma nacional. Queda prohibida su búsqueda, edición o alteración geográfica en campo."); 
+                alert("🛑 REGISTRO BLOQUEADO\n\nEste ciudadano cuenta con estatus de DEFUNCIÓN en la columna CAUSAL. No debe ser buscado ni editado."); 
             };
         } else {
             div.onclick = () => openForm(item); 
         }
         
         resultsContainer.appendChild(div);
+
 
     });
 }
