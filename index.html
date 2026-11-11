@@ -62,11 +62,12 @@
             <div class="form-block-card block-contact" style="border-left: 5px solid #5A6A80; background-color: rgba(90, 106, 128, 0.02); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #E5E7EB; border-left-width: 5px;">
                 <h3>Descarga de Derechohabientes</h3>
                 <p style="font-size:13px; color:#555; margin-bottom:15px;">Descarga la informacion de los Derechohabientes al teléfono para trabajar sin internet en campo.</p>
-                <div id="progress-container" style="display:none; background:#eee; border-radius:4px; margin:10px 0; padding:2px;">
-                    <div id="progress-bar" style="background:var(--primary-color); width:0%; height:15px; border-radius:4px; transition:width 0.2s;"></div>
+                               <div id="progress-container" style="display:none; background:#E5E7EB; border-radius:10px; margin:15px 0; padding:3px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); overflow:hidden;">
+                    <div id="progress-bar" class="progress-bar-animated" style="background: linear-gradient(90deg, #621132, #BC955C); width:0%; height:22px; border-radius:8px; transition:width 0.3s ease; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:800;">0%</div>
                 </div>
-                <p id="progress-text" style="font-size:12px; font-weight:bold; color:var(--primary-color); margin-bottom:15px;"></p>
+                <p id="progress-text" style="font-size:13px; font-weight:700; color:var(--primary-color); margin-bottom:15px; text-align:center;"></p>
                 <button type="button" onclick="downloadAllDataMassive()" id="btn-massive-download" class="btn-secondary">📥 Descargar Derechohabientes</button>
+
             </div>
         </section>
 
