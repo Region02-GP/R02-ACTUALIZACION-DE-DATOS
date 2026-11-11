@@ -1059,6 +1059,7 @@ async function downloadAllDataMassive() {
     const btn = document.getElementById('btn-massive-download');
     const progressContainer = document.getElementById('progress-container'); 
     const progressBar = document.getElementById('progress-bar'); 
+    const progressLabel = document.getElementById('progress-percentage-label');
     const progressText = document.getElementById('progress-text');
     
     if (!db) return alert("La base de datos local aún no está lista.");
@@ -1066,8 +1067,9 @@ async function downloadAllDataMassive() {
     btn.disabled = true; 
     btn.innerText = "⏳ Conectando con el servidor...";
     progressContainer.style.display = "block";
+    progressBar.style.backgroundColor = "#621132";
     progressBar.style.width = "5%";
-    progressBar.innerText = "Iniciando...";
+    if (progressLabel) progressLabel.innerText = "5% - Iniciando...";
     progressText.innerText = "Preparando memoria del dispositivo...";
     
     let offset = 0, limit = 2500, isDone = false, totalCargados = 0;
@@ -1075,7 +1077,7 @@ async function downloadAllDataMassive() {
     
     try {
         while (!isDone) {
-            progressText.innerText = `📡 Descargando paquete desde la nube... (${totalCargados} listos)`;
+            progressText.innerText = `📡 Descargando paquete... (${totalCargados} listos)`;
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
             const response = await fetch(url); 
             const data = await response.json();
@@ -1102,11 +1104,13 @@ async function downloadAllDataMassive() {
             
             const porcentaje = isDone ? 100 : Math.min(98, Math.round((totalCargados / totalEsperado) * 100));
             progressBar.style.width = `${porcentaje}%`;
-            progressBar.innerText = `${porcentaje}%`;
+            if (progressLabel) progressLabel.innerText = `${porcentaje}%`;
             progressText.innerText = `✅ Procesados: ${totalCargados} de ${totalEsperado} derechohabientes`;
         }
         
-        progressBar.style.background = "#236947";
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.style.backgroundColor = "#236947";
+        if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
         progressText.innerText = `🎉 ¡Descarga completada! ${totalCargados} registros listos en el teléfono.`;
         
         preloadDatabaseToMemory(); 
@@ -1118,7 +1122,9 @@ async function downloadAllDataMassive() {
         }, 500);
         
     } catch (error) { 
-        progressBar.style.background = "#b91c1c";
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.style.backgroundColor = "#b91c1c";
+        if (progressLabel) progressLabel.innerText = "ERROR";
         progressText.innerText = "❌ Error durante la descarga.";
         alert(`Error de conexión: ${error.message}`); 
     } finally { 
@@ -1126,6 +1132,7 @@ async function downloadAllDataMassive() {
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 
 let localMemoryDatabase = [];
