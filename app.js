@@ -1070,7 +1070,6 @@ async function downloadAllDataMassive() {
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
     
-    // Animación fluida mientras Google prepara y envía el paquete único
     let progresoSimulado = 10;
     progressBar.style.width = "10%";
     if (progressLabel) progressLabel.innerText = "10% - Conectando...";
@@ -1150,8 +1149,6 @@ async function downloadAllDataMassive() {
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
-
-
 
 let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
