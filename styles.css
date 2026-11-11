@@ -541,17 +541,18 @@ body {
     color: #FFFFFF !important;
 }
 /* =========================================================================
-   ANIMACIÓN DE BARRA DE PROGRESO EN DESCARGA
+   ANIMACIÓN DE BARRA DE PROGRESO EN DESCARGA (ALTO CONTRASTE)
    ========================================================================= */
 .progress-bar-animated {
+    background-color: #621132 !important;
     background-size: 30px 30px !important;
     background-image: linear-gradient(
         45deg,
-        rgba(255, 255, 255, 0.15) 25%,
+        rgba(188, 149, 92, 0.35) 25%,
         transparent 25%,
         transparent 50%,
-        rgba(255, 255, 255, 0.15) 50%,
-        rgba(255, 255, 255, 0.15) 75%,
+        rgba(188, 149, 92, 0.35) 50%,
+        rgba(188, 149, 92, 0.35) 75%,
         transparent 75%,
         transparent
     ) !important;
