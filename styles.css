@@ -540,3 +540,25 @@ body {
 .result-item.status-fallecido span {
     color: #FFFFFF !important;
 }
+/* =========================================================================
+   ANIMACIÓN DE BARRA DE PROGRESO EN DESCARGA
+   ========================================================================= */
+.progress-bar-animated {
+    background-size: 30px 30px !important;
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
+        transparent 75%,
+        transparent
+    ) !important;
+    animation: moverFranjas 1s linear infinite;
+}
+
+@keyframes moverFranjas {
+    0% { background-position: 0 0; }
+    100% { background-position: 30px 0; }
+}
