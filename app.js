@@ -1,5 +1,5 @@
 // URL del Web App de Google Apps Script 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPby_2e0RQs6lC_2EvkYqS4jslB-VChVnQCF7qbPcx_HGWAIPAdFESwJcp9oNWJgBDHA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJB0D_C375m_piOzyYvGeZdU1XAx6UON9zYAvKMWVYx463dgt8I-8-oOj9DaCW6evmPw/exec";
 
 
 if (typeof window.AUTHORIZED_CURPS === 'undefined') { window.AUTHORIZED_CURPS = {}; }
@@ -1065,66 +1065,64 @@ async function downloadAllDataMassive() {
     if (!db) return alert("La base de datos local aún no está lista.");
     
     btn.disabled = true; 
-    btn.innerText = "⚡ Descargando padrón estatal...";
+    btn.innerText = "⚡ Descargando padrón completo...";
     progressContainer.style.display = "block";
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
-    progressBar.style.width = "5%";
-    if (progressLabel) progressLabel.innerText = "5% - Iniciando...";
-    progressText.innerText = "Preparando memoria del dispositivo...";
     
-    let offset = 0, limit = 5000, isDone = false, totalCargados = 0;
-    
-    // Limpiar base de datos anterior antes de iniciar la descarga limpia
-    await new Promise((resolve) => {
-        const txClear = db.transaction(STORE_NAME, "readwrite");
-        txClear.objectStore(STORE_NAME).clear();
-        txClear.oncomplete = resolve;
-    });
+    // Animación fluida mientras Google prepara y envía el paquete único
+    let progresoSimulado = 10;
+    progressBar.style.width = "10%";
+    if (progressLabel) progressLabel.innerText = "10% - Conectando...";
+    progressText.innerText = "📡 Extrayendo padrón estatal en un solo bloque...";
+
+    const intervaloVisual = setInterval(() => {
+        if (progresoSimulado < 65) {
+            progresoSimulado += 5;
+            progressBar.style.width = `${progresoSimulado}%`;
+            if (progressLabel) progressLabel.innerText = `${progresoSimulado}% - Descargando...`;
+        }
+    }, 400);
     
     try {
-        while (!isDone) {
-            progressText.innerText = `📡 Descargando bloque estatal... (${totalCargados} listos)`;
-            const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
-            const response = await fetch(url); 
-            const data = await response.json();
-            
-            const totalEsperado = data.totalRecords || 25000;
+        const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&_=${new Date().getTime()}`;
+        const response = await fetch(url); 
+        const data = await response.json();
+        
+        clearInterval(intervaloVisual);
+
+        const totalEsperado = data.rows ? data.rows.length : 0;
+        progressBar.style.width = "75%";
+        if (progressLabel) progressLabel.innerText = "75% - Guardando en teléfono...";
+        progressText.innerText = `💾 Indexando ${totalEsperado} registros en memoria local...`;
+
+        let totalCargados = 0;
+
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite"); 
+            const store = tx.objectStore(STORE_NAME);
+            store.clear();
 
             if (data && data.rows && data.rows.length > 0 && data.headers) {
-                progressText.innerText = `💾 Guardando en dispositivo... (${totalCargados} de ${totalEsperado})`;
-                
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction(STORE_NAME, "readwrite"); 
-                    const store = tx.objectStore(STORE_NAME);
-                    const headers = data.headers;
-                    const curpIdx = headers.indexOf("CURP");
+                const headers = data.headers;
+                const curpIdx = headers.findIndex(h => String(h).toUpperCase().trim() === "CURP");
 
-                    for (let i = 0; i < data.rows.length; i++) {
-                        const rowArr = data.rows[i];
-                        if (!rowArr || curpIdx === -1 || !rowArr[curpIdx]) continue;
+                for (let i = 0; i < data.rows.length; i++) {
+                    const rowArr = data.rows[i];
+                    if (!rowArr || curpIdx === -1 || !rowArr[curpIdx]) continue;
 
-                        const record = {};
-                        for (let j = 0; j < headers.length; j++) {
-                            record[headers[j]] = rowArr[j];
-                        }
-                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim();
-                        store.put(record);
-                        totalCargados++;
+                    const record = {};
+                    for (let j = 0; j < headers.length; j++) {
+                        record[headers[j]] = rowArr[j];
                     }
-                    tx.oncomplete = resolve;
-                    tx.onerror = () => reject(tx.error);
-                });
+                    record.CURP = String(record[headers[curpIdx]]).replace(/ /g, "").toUpperCase().trim();
+                    store.put(record);
+                    totalCargados++;
+                }
             }
-            
-            isDone = data.done === true || !data.rows || data.rows.length === 0; 
-            offset = data.nextOffset || (offset + limit);
-            
-            const porcentaje = isDone ? 100 : Math.min(98, Math.round((totalCargados / totalEsperado) * 100));
-            progressBar.style.width = `${porcentaje}%`;
-            if (progressLabel) progressLabel.innerText = `${porcentaje}%`;
-            progressText.innerText = `✅ Procesados: ${totalCargados} de ${totalEsperado} derechohabientes`;
-        }
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
         
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#236947";
@@ -1136,11 +1134,12 @@ async function downloadAllDataMassive() {
         updateLocalCounter(); 
         
         setTimeout(() => {
-            alert(`✅ DESCARGA ESTATAL EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
+            alert(`✅ DESCARGA RÁPIDA EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
             changeScreen('screen-search');
-        }, 400);
+        }, 300);
         
     } catch (error) { 
+        clearInterval(intervaloVisual);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
         if (progressLabel) progressLabel.innerText = "ERROR";
