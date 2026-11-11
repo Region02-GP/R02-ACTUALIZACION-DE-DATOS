@@ -521,26 +521,22 @@ body {
     100% { transform: rotate(360deg); }
 }
 /* =========================================================================
-   BLINDAJE DE SEMÁFORO: PERSONAS FALLECIDAS (MÁXIMO CONTRASTE)
+   4.5 FALLECIDOS / DEFUNCIÓN (COLUMNA CAUSAL)
    ========================================================================= */
-body .result-item.status-fallecido {
-    border-left: 6px solid #111111 !important; 
-    background-color: #212529 !important;     /* Color antracita oscuro */
-    background-image: none !important;         /* Elimina la textura de fondo institucional */
-    color: #FFFFFF !important;                 /* Texto blanco obligatorio */
-    cursor: not-allowed !important;            
-    opacity: 0.95 !important;
-    pointer-events: auto !important;           /* Mantiene activo el clic para lanzar la alerta */
+.result-item.status-fallecido {
+    border-left: 6px solid #000000 !important;
+    background-color: #212529 !important;
+    background-image: none !important;
+    color: #FFFFFF !important;
+    cursor: not-allowed !important;
 }
 
-body .result-item.status-fallecido:hover {
-    background-color: #212529 !important;
+.result-item.status-fallecido:hover {
+    background-color: #16181b !important;
     padding-left: 16px !important;
 }
 
-/* Forzar color blanco a todos los contenedores y textos internos de la ficha */
-body .result-item.status-fallecido div,
-body .result-item.status-fallecido span,
-body .result-item.status-fallecido p {
+.result-item.status-fallecido div,
+.result-item.status-fallecido span {
     color: #FFFFFF !important;
 }
