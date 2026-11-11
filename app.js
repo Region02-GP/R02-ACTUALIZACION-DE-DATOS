@@ -1630,7 +1630,7 @@ function procesarFotoEvidencia(inputElement, previewId, claveDocumento, wrapperI
         reader.onload = function(e) {
             const imgHtml = new Image();
             imgHtml.onload = function() {
-                const MAX_WIDTH = 800;
+                                const MAX_WIDTH = 650;
                 let width = imgHtml.width;
                 let height = imgHtml.height;
                 if (width > MAX_WIDTH) {
@@ -1638,6 +1638,12 @@ function procesarFotoEvidencia(inputElement, previewId, claveDocumento, wrapperI
                     width = MAX_WIDTH;
                 }
                 const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imgHtml, 0, 0, width, height);
+                
+                const imagenComprimidaBase64 = canvas.toDataURL('image/jpeg', 0.5);
+
                 canvas.width = width; canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(imgHtml, 0, 0, width, height);
