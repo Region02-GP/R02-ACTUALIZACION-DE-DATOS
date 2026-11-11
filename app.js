@@ -1,5 +1,5 @@
 // URL del Web App de Google Apps Script 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJB0D_C375m_piOzyYvGeZdU1XAx6UON9zYAvKMWVYx463dgt8I-8-oOj9DaCW6evmPw/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzi_22hqouZnRv6RIAG59tp44LC3z6rpq58Vt1kArao0qd3Xvj3CIQY4YK0Bw15-st2iw/exec";
 
 
 if (typeof window.AUTHORIZED_CURPS === 'undefined') { window.AUTHORIZED_CURPS = {}; }
@@ -1947,37 +1947,46 @@ function openHistoryScreen() {
 
 async function syncWithSheets() {
     if (pendingSync.length === 0) return alert("No tienes registros pendientes de sincronizar en este momento.");
-    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${pendingSync.length} registros y fotos.\n\nPor favor, no bloquees la pantalla durante el envío.`);
-    if(!confirmarSincronizacion) return;
     
-    mostrarCargando(`Sincronizando ${pendingSync.length} expedientes...`);
+    const totalASincronizar = pendingSync.length;
+    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN RÁPIDA: Se enviarán ${totalASincronizar} expedientes uno por uno.\n\nMantenga la pantalla encendida durante el proceso.`);
+    if (!confirmarSincronizacion) return;
+    
+    let enviadosExitosos = 0;
 
     try {
-        const response = await fetch(GOOGLE_SCRIPT_URL, { 
-            method: 'POST', 
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json;charset=utf-8' }, 
-            body: JSON.stringify({ action: "sync", records: pendingSync }) 
-        });
+        while (pendingSync.length > 0) {
+            const expedienteActual = pendingSync;
+            enviadosExitosos++;
+            
+            mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})`);
+
+            await fetch(GOOGLE_SCRIPT_URL, { 
+                method: 'POST', 
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                body: JSON.stringify({ action: "sync", records: [expedienteActual] }) 
+            });
+
+            // Mover este expediente ya enviado al historial y sacarlo de pendientes de inmediato
+            syncedHistory.push(expedienteActual);
+            localStorage.setItem('syncedHistory', JSON.stringify(syncedHistory));
+            
+            pendingSync.shift();
+            localStorage.setItem('pendingSync', JSON.stringify(pendingSync));
+            
+            // Actualizar métricas en tiempo real
+            updateLocalCounter();
+        }
         
-        // Pasar la cola temporal al historial permanente de sesión
-        syncedHistory = syncedHistory.concat(pendingSync); 
-        localStorage.setItem('syncedHistory', JSON.stringify(syncedHistory)); 
-        
-        // Vaciar la cola de pendientes sin alterar IndexedDB ni la RAM local
-        pendingSync = []; 
-        localStorage.removeItem('pendingSync'); 
-        
-        // Actualizar contadores métricos de la pantalla de bienvenida
-        updateLocalCounter();
         ocultarCargando();
-        
-        // RE-RENDERIZADO SÍNCRONO: Redibuja el historial manteniendo los registros intactos para edición
         openHistoryScreen(); 
-        alert("🎉 ¡ÉXITO!: Sus expedientes se han sincronizado de forma correcta."); 
+        alert(`🎉 ¡SINCRONIZACIÓN COMPLETADA!: Se subieron ${enviadosExitosos} expedientes correctamente.`); 
+        
     } catch (e) { 
         ocultarCargando();
-        alert("🛑 Error en transmisión: Verifique que su Apps Script esté publicado correctamente o revise su conexión a internet."); 
+        openHistoryScreen();
+        alert(`⚠️ Transmisión interrumpida: Se lograron subir ${enviadosExitosos - 1} expedientes. Los restantes siguen guardados en su teléfono para intentarlo más tarde.`); 
     }
 }
 
