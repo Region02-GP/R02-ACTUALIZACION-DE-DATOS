@@ -1224,19 +1224,9 @@ function searchData() {
             textoIndicador = ' <span style="color:#137333; font-weight:bold; font-size:12px; margin-left:5px;">✓ Localizado</span>';
         }
 
-        div.className = claseColor;
+               div.className = claseColor;
 
-        
-        // Forzar estilos oscuros en tiempo de renderizado si la condición de fallecido es afirmativa
-        if (esFallecido) {
-            div.style.cssText = estiloFallecidoInline;
-        }
-        
-        // Normalización de colores internos de las fuentes para evitar herencias de estilos claros
-        const colorTextoInterno = esFallecido ? "#FFFFFF" : "var(--dark-color)";
-        const colorCalleInterno = esFallecido ? "#E2E8F0" : "#555555";
-        
-                div.innerHTML = `<div style="font-size:16px; font-weight:700; margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
+        div.innerHTML = `<div style="font-size:16px; font-weight:700; margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
                          <div style="font-size:13px; font-weight:600; margin-bottom:4px; letter-spacing:0.3px;">
                              CURP: ${item['CURP'] || 'SIN CURP'} | <span style="background-color:${badgeSeccionColor}; color:${badgeSeccionTextoColor}; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; display:inline-block; margin-left:2px;">SECCIÓN: ${item['SECCION_LIMPIA'] || 'S/S'}</span>
                          </div>
@@ -1252,6 +1242,7 @@ function searchData() {
         }
         
         resultsContainer.appendChild(div);
+
 
 
     });
