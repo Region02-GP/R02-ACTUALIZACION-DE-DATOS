@@ -1958,9 +1958,10 @@ async function syncWithSheets() {
     let enviadosExitosos = 0;
 
     try {
-                while (pendingSync.length > 0) {
-            const expedienteActual = pendingSync;
+                    while (pendingSync.length > 0) {
+            const expedienteActual = pendingSync[0];
             enviadosExitosos++;
+
 
             
             mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})`);
