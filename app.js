@@ -1,5 +1,5 @@
 // URL del Web App de Google Apps Script 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwq1dbP_SEoB8_V9cGEr3rtXBt6tfmri7muzw261j4g5bfooEu4BH_dev3Cvq8bVlALDA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPby_2e0RQs6lC_2EvkYqS4jslB-VChVnQCF7qbPcx_HGWAIPAdFESwJcp9oNWJgBDHA/exec";
 
 
 if (typeof window.AUTHORIZED_CURPS === 'undefined') { window.AUTHORIZED_CURPS = {}; }
