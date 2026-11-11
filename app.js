@@ -1062,10 +1062,10 @@ async function downloadAllDataMassive() {
     const progressLabel = document.getElementById('progress-percentage-label');
     const progressText = document.getElementById('progress-text');
     
-    if (!db) return alert("La base de datos local aún no está lista.");
+    if (!db) return alert("La base de datos aún no está lista.");
     
     btn.disabled = true; 
-    btn.innerText = "⚡ Descargando padrón completo...";
+    btn.innerText = "⚡ Descargando padrón...";
     progressContainer.style.display = "block";
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
@@ -1073,7 +1073,7 @@ async function downloadAllDataMassive() {
     let progresoSimulado = 10;
     progressBar.style.width = "10%";
     if (progressLabel) progressLabel.innerText = "10% - Conectando...";
-    progressText.innerText = "📡 Extrayendo padrón estatal en un solo bloque...";
+    progressText.innerText = "📡 Descargando padrón...";
 
     const intervaloVisual = setInterval(() => {
         if (progresoSimulado < 65) {
@@ -1093,7 +1093,7 @@ async function downloadAllDataMassive() {
         const totalEsperado = data.rows ? data.rows.length : 0;
         progressBar.style.width = "75%";
         if (progressLabel) progressLabel.innerText = "75% - Guardando en teléfono...";
-        progressText.innerText = `💾 Indexando ${totalEsperado} registros en memoria local...`;
+        progressText.innerText = `💾 Guardando ${totalEsperado} registros en memoria local...`;
 
         let totalCargados = 0;
 
@@ -1294,7 +1294,7 @@ function searchData() {
         if (esFallecido) {
             div.onclick = (e) => { 
                 e.stopPropagation();
-                alert("🛑 REGISTRO BLOQUEADO\n\nEste ciudadano cuenta con estatus de DEFUNCIÓN en la columna CAUSAL. No debe ser buscado ni editado."); 
+                alert("🛑 REGISTRO BLOQUEADO\n\nEste ciudadano cuenta con estatus de DEFUNCIÓN. No debe ser buscado ni editado."); 
             };
         } else {
             div.onclick = () => openForm(item); 
@@ -1622,7 +1622,7 @@ function procesarFotoEvidencia(inputElement, previewId, claveDocumento, wrapperI
     if (inputElement && inputElement.files && inputElement.files[0]) {
         const file = inputElement.files[0];
         const reader = new FileReader();
-        mostrarCargando("Procesando fotografía digital...");
+        mostrarCargando("Procesando fotografía...");
         
         reader.onload = function(e) {
             const imgHtml = new Image();
@@ -1951,7 +1951,7 @@ async function syncWithSheets() {
     if (pendingSync.length === 0) return alert("No tienes registros pendientes de sincronizar en este momento.");
     
     const totalASincronizar = pendingSync.length;
-    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN RÁPIDA: Se enviarán ${totalASincronizar} expedientes uno por uno.\n\nMantenga la pantalla encendida durante el proceso.`);
+    const confirmarSincronizacion = confirm(`🔄 ENVIO DE INFORMACION: Se enviarán ${totalASincronizar} expedientes uno por uno.\n\nMantenga la pantalla encendida durante el proceso.`);
     if (!confirmarSincronizacion) return;
     
     let enviadosExitosos = 0;
