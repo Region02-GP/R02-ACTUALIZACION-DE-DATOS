@@ -1073,6 +1073,7 @@ async function downloadAllDataMassive() {
 
     let offset = 0, limit = 10000, isDone = false, totalCargados = 0, bloque = 1;
     let segundos = 0;
+    let respuestaCrudaMuestra = "";
 
     const reloj = setInterval(() => {
         segundos++;
@@ -1091,19 +1092,52 @@ async function downloadAllDataMassive() {
             const response = await fetch(url); 
             const data = await response.json();
 
-            if (!data || data.status === "error") {
-                throw new Error((data && data.message) ? data.message : "Respuesta vacía del servidor");
+            if (bloque === 1) {
+                respuestaCrudaMuestra = JSON.stringify(data).slice(0, 250);
             }
 
-            const registros = Array.isArray(data.records) ? data.records : [];
+            if (data && data.status === "error") {
+                throw new Error(data.message || "Error devuelto por Google Apps Script");
+            }
+
+            // DETECTOR UNIVERSAL DE FORMATO DE RESPUESTA
+            let registros = [];
+            if (Array.isArray(data)) {
+                registros = data;
+            } else if (data && Array.isArray(data.records)) {
+                registros = data.records;
+            } else if (data && Array.isArray(data.data)) {
+                registros = data.data;
+            } else if (data && Array.isArray(data.rows) && Array.isArray(data.headers)) {
+                // Convierte formato matriz (headers + rows) a objetos
+                const headers = data.headers;
+                registros = data.rows.map(row => {
+                    const obj = {};
+                    headers.forEach((h, idx) => { obj[h] = row[idx]; });
+                    return obj;
+                });
+            }
             
             if (registros.length > 0) {
                 progressText.innerText = `💾 Guardando bloque ${bloque} (${registros.length} registros) en el teléfono...`;
                 const tx = db.transaction(STORE_NAME, "readwrite"); 
                 const store = tx.objectStore(STORE_NAME);
-                registros.forEach(record => {
-                    if (record && record.CURP) {
-                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); 
+                
+                registros.forEach(rawRecord => {
+                    if (!rawRecord) return;
+                    const record = {};
+                    let curpVal = "";
+
+                    Object.keys(rawRecord).forEach(k => {
+                        const cleanKey = String(k).toUpperCase().trim();
+                        record[cleanKey] = rawRecord[k];
+                        if (cleanKey === "CURP") {
+                            curpVal = String(rawRecord[k] || "").replace(/ /g, "").toUpperCase().trim();
+                        }
+                    });
+
+                    if (curpVal) {
+                        record.CURP = curpVal;
                         store.put(record); 
                         totalCargados++;
                     }
@@ -1111,8 +1145,9 @@ async function downloadAllDataMassive() {
                 await new Promise((resolve) => { tx.oncomplete = resolve; });
             }
             
-            isDone = data.done === true || registros.length === 0; 
-            offset = data.nextOffset || (offset + limit);
+            // Si devolvió todo en un solo golpe (rows) o marcó done=true o no trajo más filas
+            isDone = (data && data.done === true) || (data && Array.isArray(data.rows)) || registros.length === 0; 
+            offset = (data && data.nextOffset) ? data.nextOffset : (offset + limit);
             bloque++;
             
             const porcentaje = isDone ? 100 : Math.min(95, Math.round((totalCargados / 50000) * 100));
@@ -1122,6 +1157,15 @@ async function downloadAllDataMassive() {
         
         clearInterval(reloj);
         progressBar.classList.remove('progress-bar-animated');
+
+        if (totalCargados === 0) {
+            progressBar.style.backgroundColor = "#b91c1c";
+            if (progressLabel) progressLabel.innerText = "0 REGISTROS";
+            progressText.innerText = "⚠️ Google respondió sin registros.";
+            alert(`⚠️ ALERTA: Google respondió pero no se encontraron registros.\n\nLo que respondió tu script fue:\n${respuestaCrudaMuestra}`);
+            return;
+        }
+
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = `100% - ${totalCargados} listos`;
@@ -1144,8 +1188,6 @@ async function downloadAllDataMassive() {
     }
 }
 
-
-let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
     if (!db) return;
     db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (e) => { 
