@@ -1433,19 +1433,13 @@ function seleccionarEstatusVisita(estatus) {
             actualizarEstilosBotonesFormulario(); 
             return; 
         }
-        // 🔥 CORREGIDO: Se fuerza a mayúsculas desde el momento de la captura
         motivoNoLocalizadoValue = mot.trim().toUpperCase();
         document.getElementById('f-recibio-salud').removeAttribute('required');
         actualizarEstilosBotonesFormulario();
-
-        // VALIDACIÓN DE COORDENADAS PARA GUARDADO AUTOMÁTICO
-        const latValue = document.getElementById('f-lat').value;
-        if (latValue.includes("Buscando") || latValue === "" || latValue === "ERROR") {
-            mostrarCargando("Esperando señal de satélite para georreferencia obligatoria...");
-            window.pendienteGuardarNoLocalizado = true; 
-        } else {
-            saveData(null); 
-        }
+        
+        // Guarda inmediatamente sin congelar la pantalla si el GPS aún no responde
+        window.pendienteGuardarNoLocalizado = false;
+        saveData(null);
         return;
     } else { 
         motivoNoLocalizadoValue = ""; 
@@ -1454,6 +1448,7 @@ function seleccionarEstatusVisita(estatus) {
     }
     actualizarEstilosBotonesFormulario();
 }
+
 
 function evaluarFlujoSalud() {
     const recibio = document.getElementById('f-recibio-salud').value;
