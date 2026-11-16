@@ -1070,58 +1070,63 @@ async function downloadAllDataMassive() {
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
     
-    let progresoSimulado = 10;
-    progressBar.style.width = "10%";
-    if (progressLabel) progressLabel.innerText = "10% - Conectando...";
-    progressText.innerText = "📡 Descargando padrón...";
+    progressBar.style.width = "5%";
+    if (progressLabel) progressLabel.innerText = "5% - Conectando...";
+    progressText.innerText = "📡 Iniciando descarga desde Google Sheets...";
 
-    const intervaloVisual = setInterval(() => {
-        if (progresoSimulado < 65) {
-            progresoSimulado += 5;
-            progressBar.style.width = `${progresoSimulado}%`;
-            if (progressLabel) progressLabel.innerText = `${progresoSimulado}% - Descargando...`;
-        }
-    }, 400);
-    
+    let offset = 0;
+    const limit = 10000;
+    let isDone = false;
+    let totalCargados = 0;
+
     try {
-        const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&_=${new Date().getTime()}`;
-        const response = await fetch(url); 
-        const data = await response.json();
-        
-        clearInterval(intervaloVisual);
-
-        const totalEsperado = data.rows ? data.rows.length : 0;
-        progressBar.style.width = "75%";
-        if (progressLabel) progressLabel.innerText = "75% - Guardando en teléfono...";
-        progressText.innerText = `💾 Guardando ${totalEsperado} registros en memoria local...`;
-
-        let totalCargados = 0;
-
+        // Limpiamos la base local antes de recibir los bloques nuevos
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, "readwrite"); 
-            const store = tx.objectStore(STORE_NAME);
-            store.clear();
-
-            if (data && data.rows && data.rows.length > 0 && data.headers) {
-                const headers = data.headers;
-                const curpIdx = headers.findIndex(h => String(h).toUpperCase().trim() === "CURP");
-
-                for (let i = 0; i < data.rows.length; i++) {
-                    const rowArr = data.rows[i];
-                    if (!rowArr || curpIdx === -1 || !rowArr[curpIdx]) continue;
-
-                    const record = {};
-                    for (let j = 0; j < headers.length; j++) {
-                        record[headers[j]] = rowArr[j];
-                    }
-                    record.CURP = String(record[headers[curpIdx]]).replace(/ /g, "").toUpperCase().trim();
-                    store.put(record);
-                    totalCargados++;
-                }
-            }
-            tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error);
+            const clearTx = db.transaction(STORE_NAME, "readwrite");
+            clearTx.objectStore(STORE_NAME).clear();
+            clearTx.oncomplete = resolve;
+            clearTx.onerror = () => reject(clearTx.error);
         });
+
+        // Descarga paginada compatible con el doGet actual de Code.gs
+        while (!isDone) {
+            progressText.innerText = `📡 Descargando bloque... (${totalCargados} registros acumulados)`;
+            
+            const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data && data.records && data.records.length > 0) {
+                progressText.innerText = `💾 Guardando ${data.records.length} registros en el teléfono...`;
+
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, "readwrite");
+                    const store = tx.objectStore(STORE_NAME);
+
+                    for (let i = 0; i < data.records.length; i++) {
+                        const record = data.records[i];
+                        if (record && record.CURP) {
+                            record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim();
+                            store.put(record);
+                            totalCargados++;
+                        }
+                    }
+
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            isDone = data.done === true || !data.records || data.records.length === 0;
+            offset = data.nextOffset || (offset + limit);
+
+            // Actualización visual de porcentaje estimado (hasta 95% antes de terminar)
+            let porcentaje = isDone ? 100 : Math.min(95, Math.round((totalCargados / 25000) * 100));
+            if (porcentaje < 10 && !isDone) porcentaje = 15;
+            
+            progressBar.style.width = `${porcentaje}%`;
+            if (progressLabel) progressLabel.innerText = `${porcentaje}% - ${totalCargados} registros`;
+        }
         
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#236947";
@@ -1133,12 +1138,11 @@ async function downloadAllDataMassive() {
         updateLocalCounter(); 
         
         setTimeout(() => {
-            alert(`✅ DESCARGA RÁPIDA EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
+            alert(`✅ DESCARGA EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
             changeScreen('screen-search');
         }, 300);
         
     } catch (error) { 
-        clearInterval(intervaloVisual);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
         if (progressLabel) progressLabel.innerText = "ERROR";
@@ -1149,6 +1153,7 @@ async function downloadAllDataMassive() {
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
