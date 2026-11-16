@@ -1949,11 +1949,9 @@ function openHistoryScreen() {
 
 async function syncWithSheets() {
     if (pendingSync.length === 0) return alert("No tienes registros pendientes de sincronizar en este momento.");
-    
-    const totalASincronizar = pendingSync.length;
-    const confirmarSincronizacion = confirm(`🔄 ENVIO DE INFORMACION: Se enviarán ${totalASincronizar} expedientes uno por uno.\n\nMantenga la pantalla encendida durante el proceso.`);
+    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${pendingSync.length} registros y fotos.\n\nPor favor, no bloquees la pantalla durante el envío.`);
     if (!confirmarSincronizacion) return;
-    
+
     let enviadosExitosos = 0;
 
     try {
