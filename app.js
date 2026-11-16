@@ -1070,23 +1070,23 @@ async function downloadAllDataMassive() {
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
     
-    progressBar.style.width = "5%";
-    if (progressLabel) progressLabel.innerText = "5% - Conectando...";
-    progressText.innerText = "📡 Conectando con el servidor de Google...";
+    progressBar.style.width = "3%";
+    if (progressLabel) progressLabel.innerText = "3% - Conectando...";
+    progressText.innerText = "📡 Conectando con base de 50,000 registros (puede tardar 1-2 min)...";
 
     let offset = 0;
-    const limit = 3500; // Bloques más ligeros para respuesta rápida de Google
+    const limit = 2000; // Bloques ligeros para evitar saturación en hojas de 50,000 filas
+    const totalEstimado = 50000;
     let isDone = false;
     let totalCargados = 0;
     let segundosEspera = 0;
 
-    // Temporizador visual para confirmar que la conexión sigue viva mientras Google procesa
     const relojEspera = setInterval(() => {
         segundosEspera++;
         if (totalCargados === 0) {
-            const avanceVisual = Math.min(25, 5 + Math.floor(segundosEspera / 2));
+            const avanceVisual = Math.min(15, 3 + Math.floor(segundosEspera / 4));
             progressBar.style.width = `${avanceVisual}%`;
-            if (progressLabel) progressLabel.innerText = `${avanceVisual}% - Procesando en Google (${segundosEspera}s)...`;
+            if (progressLabel) progressLabel.innerText = `${avanceVisual}% - Leyendo hoja (${segundosEspera}s)...`;
         }
     }, 1000);
 
@@ -1099,13 +1099,13 @@ async function downloadAllDataMassive() {
         });
 
         while (!isDone) {
-            progressText.innerText = `📡 Descargando bloque desde fila ${offset + 1}... (${totalCargados} guardados)`;
+            progressText.innerText = `📡 Descargando filas ${offset + 1} a ${offset + limit}... (${totalCargados} guardados)`;
             
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
             
-            // Controlador de tiempo límite (60 segundos por bloque)
+            // Tiempo límite de 120 segundos (2 minutos) por bloque
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             const response = await fetch(url, { signal: controller.signal });
             clearTimeout(timeoutId);
@@ -1121,7 +1121,7 @@ async function downloadAllDataMassive() {
             }
 
             if (data && data.records && data.records.length > 0) {
-                progressText.innerText = `💾 Guardando ${data.records.length} registros en el teléfono...`;
+                progressText.innerText = `💾 Guardando bloque en el teléfono (${totalCargados + data.records.length} registros)...`;
 
                 await new Promise((resolve, reject) => {
                     const tx = db.transaction(STORE_NAME, "readwrite");
@@ -1144,9 +1144,10 @@ async function downloadAllDataMassive() {
             isDone = data.done === true || !data.records || data.records.length === 0;
             offset = data.nextOffset || (offset + limit);
 
-            let porcentaje = isDone ? 100 : Math.min(95, Math.max(30, Math.round((totalCargados / 25000) * 100)));
+            // Cálculo real sobre 50,000 registros
+            let porcentaje = isDone ? 100 : Math.min(98, Math.max(16, Math.round((totalCargados / totalEstimado) * 100)));
             progressBar.style.width = `${porcentaje}%`;
-            if (progressLabel) progressLabel.innerText = `${porcentaje}% - ${totalCargados} registros`;
+            if (progressLabel) progressLabel.innerText = `${porcentaje}% (${totalCargados} / ~50,000)`;
         }
         
         clearInterval(relojEspera);
@@ -1154,7 +1155,7 @@ async function downloadAllDataMassive() {
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
-        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros guardados.`;
+        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros guardados en el dispositivo.`;
         
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
@@ -1171,7 +1172,7 @@ async function downloadAllDataMassive() {
         if (progressLabel) progressLabel.innerText = "ERROR";
         
         const mensajeError = error.name === 'AbortError' 
-            ? "Tiempo de espera agotado (60s). Verifica tu conexión a internet o el tamaño de la hoja." 
+            ? "Google tardó más de 2 minutos en responder. Intenta con una conexión Wi-Fi más estable." 
             : error.message;
             
         progressText.innerText = "❌ Error durante la descarga.";
@@ -1181,6 +1182,7 @@ async function downloadAllDataMassive() {
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 
 function searchData() {
