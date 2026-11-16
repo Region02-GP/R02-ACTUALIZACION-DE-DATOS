@@ -192,13 +192,11 @@
                                 <option value="NO_QUIERE">No quiero las visitas</option>
                             </select>
                         </div>
-                        <!-- Campos ocultos necesarios para JavaScript -->
+                                               <!-- Campos ocultos necesarios para JavaScript -->
                         <input type="hidden" id="f-atencion-salud" value="">
-                        <input type="hidden" id="f-motivo-no-visita" value="">
-                        <input type="hidden" id="f-desea-visita-futura" value="">
-                        <input type="hidden" id="f-causal" value="">
                     </div> <!-- Cierre corregido de Tarjeta 4 -->
                 </div> <!-- Cierre corregido de form-fields-wrapper -->
+
 
                 <!-- 🎭 TARJETA 5: EVALUACIÓN DE TRATO -->
 
@@ -305,7 +303,17 @@
         </nav>
     </main>
 
+  
     <script src="brigadistas.js"></script>
     <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .catch(err => console.error('Error SW:', err));
+            });
+        }
+    </script>
 </body>
 </html>
+
