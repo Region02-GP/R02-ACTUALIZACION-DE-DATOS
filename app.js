@@ -1142,7 +1142,7 @@ async function downloadAllDataMassive() {
             changeScreen('screen-search');
         }, 300);
         
-    } catch (error) { 
+       } catch (error) { 
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
         if (progressLabel) progressLabel.innerText = "ERROR";
@@ -1152,8 +1152,7 @@ async function downloadAllDataMassive() {
         btn.disabled = false; 
         btn.innerText = "📥 Descargar Derechohabientes";
     }
-}
-
+} // <-- ESTA LLAVE ES LA QUE FALTA
 
 let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
