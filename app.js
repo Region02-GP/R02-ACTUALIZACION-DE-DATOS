@@ -2014,13 +2014,10 @@ async function syncWithSheets() {
 
     let enviadosExitosos = 0;
 
-
     try {
-                    while (pendingSync.length > 0) {
+        while (pendingSync.length > 0) {
             const expedienteActual = pendingSync[0];
             enviadosExitosos++;
-
-
             
             mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})`);
 
@@ -2050,6 +2047,7 @@ async function syncWithSheets() {
         alert(`⚠️ Transmisión interrumpida: Se lograron subir ${enviadosExitosos - 1} expedientes. Los restantes siguen guardados en su teléfono para intentarlo más tarde.`); 
     }
 }
+
 
 function downloadBackupCSV() {
     const allVisitsOfDay = pendingSync.concat(syncedHistory); 
