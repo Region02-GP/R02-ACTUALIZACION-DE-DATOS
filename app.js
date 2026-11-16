@@ -1065,24 +1065,43 @@ async function downloadAllDataMassive() {
     if (!db) return alert("La base de datos local aún no está lista.");
     
     btn.disabled = true; 
+    btn.innerText = "⏳ Descargando (No cierres la pantalla)...";
     progressContainer.style.display = "block";
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
+    progressBar.style.width = "5%";
 
-    let offset = 0, limit = 10000, isDone = false, totalCargados = 0;
+    let offset = 0, limit = 10000, isDone = false, totalCargados = 0, bloque = 1;
+    let segundos = 0;
+
+    const reloj = setInterval(() => {
+        segundos++;
+        if (progressLabel) {
+            const pctActual = totalCargados === 0 ? "5%" : `${Math.min(95, Math.round((totalCargados / 50000) * 100))}%`;
+            progressLabel.innerText = `${pctActual} - Bloque ${bloque} (${segundos}s)`;
+        }
+    }, 1000);
+
     db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear();
     
     try {
         while (!isDone) {
-            progressText.innerText = `Descargando registros: ${totalCargados} acumulados...`;
+            progressText.innerText = `📡 Pidiendo bloque ${bloque} a Google (${totalCargados} guardados)...`;
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
             const response = await fetch(url); 
             const data = await response.json();
+
+            if (!data || data.status === "error") {
+                throw new Error((data && data.message) ? data.message : "Respuesta vacía del servidor");
+            }
+
+            const registros = Array.isArray(data.records) ? data.records : [];
             
-            if (data && data.records && data.records.length > 0) {
+            if (registros.length > 0) {
+                progressText.innerText = `💾 Guardando bloque ${bloque} (${registros.length} registros) en el teléfono...`;
                 const tx = db.transaction(STORE_NAME, "readwrite"); 
                 const store = tx.objectStore(STORE_NAME);
-                data.records.forEach(record => {
+                registros.forEach(record => {
                     if (record && record.CURP) {
                         record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); 
                         store.put(record); 
@@ -1092,18 +1111,20 @@ async function downloadAllDataMassive() {
                 await new Promise((resolve) => { tx.oncomplete = resolve; });
             }
             
-            isDone = data.done === true || data.records.length === 0; 
+            isDone = data.done === true || registros.length === 0; 
             offset = data.nextOffset || (offset + limit);
+            bloque++;
             
-            const porcentaje = isDone ? 100 : Math.min(95, Math.round((offset / 50000) * 100));
-            progressBar.style.width = `${porcentaje}%`;
-            if (progressLabel) progressLabel.innerText = `${porcentaje}%`;
+            const porcentaje = isDone ? 100 : Math.min(95, Math.round((totalCargados / 50000) * 100));
+            progressBar.style.width = `${Math.max(10, porcentaje)}%`;
+            if (progressLabel) progressLabel.innerText = `${porcentaje}% - ${totalCargados} guardados`;
         }
         
+        clearInterval(reloj);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
-        if (progressLabel) progressLabel.innerText = "100%";
+        if (progressLabel) progressLabel.innerText = `100% - ${totalCargados} listos`;
         progressText.innerText = `¡Descarga completa! ${totalCargados} registros listos.`;
         
         preloadDatabaseToMemory(); 
@@ -1111,14 +1132,17 @@ async function downloadAllDataMassive() {
         alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros en tu teléfono.`); 
         changeScreen('screen-search');
     } catch (error) { 
+        clearInterval(reloj);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
+        if (progressLabel) progressLabel.innerText = "ERROR";
+        progressText.innerText = `❌ ${error.message}`;
         alert(`Error: ${error.message}`); 
     } finally { 
         btn.disabled = false; 
+        btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
-
 
 
 let localMemoryDatabase = [];
