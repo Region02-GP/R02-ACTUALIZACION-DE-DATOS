@@ -1953,10 +1953,13 @@ function openHistoryScreen() {
 
 async function syncWithSheets() {
     if (pendingSync.length === 0) return alert("No tienes registros pendientes de sincronizar en este momento.");
-    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${pendingSync.length} registros y fotos.\n\nPor favor, no bloquees la pantalla durante el envío.`);
+    
+    const totalASincronizar = pendingSync.length;
+    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${totalASincronizar} registros y fotos.\n\nPor favor, no bloquees la pantalla durante el envío.`);
     if (!confirmarSincronizacion) return;
 
     let enviadosExitosos = 0;
+
 
     try {
                     while (pendingSync.length > 0) {
