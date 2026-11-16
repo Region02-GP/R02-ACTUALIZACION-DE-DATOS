@@ -2054,6 +2054,53 @@ function actualizarEstilosBotonesTrato() {
         btnHo.style.backgroundColor = "#FCE8E6"; btnHo.style.borderColor = "#b91c1c"; btnHo.style.color = "#b91c1c"; 
     }
 }
+function procesarFotoEvidencia(inputElement, previewId, claveDocumento, wrapperId, buttonId, textoNuevo) {
+    if (inputElement && inputElement.files && inputElement.files[0]) {
+        const file = inputElement.files[0];
+        const reader = new FileReader();
+        mostrarCargando("Optimizando fotografía...");
+        
+        reader.onload = function(e) {
+            const imgHtml = new Image();
+            imgHtml.onload = function() {
+                // Resolución óptima para lectura clara de documentos sin saturar la red móvil
+                const MAX_WIDTH = 550;
+                let width = imgHtml.width;
+                let height = imgHtml.height;
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width; 
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imgHtml, 0, 0, width, height);
+                
+                const imagenComprimidaBase64 = canvas.toDataURL('image/jpeg', 0.45);
+                const imgPreview = document.getElementById(previewId);
+                if (imgPreview) { 
+                    imgPreview.src = imagenComprimidaBase64; 
+                    imgPreview.style.display = "block"; 
+                }
+                
+                expedienteDigitalTemporal[claveDocumento] = imagenComprimidaBase64;
+                
+                const contenedor = document.getElementById(wrapperId);
+                const boton = document.getElementById(buttonId);
+                if (contenedor && boton) {
+                    contenedor.style.backgroundColor = "#E6F4EA";
+                    contenedor.style.borderColor = "#236947";
+                    boton.style.backgroundColor = "#236947";
+                    boton.innerText = "✓ " + textoNuevo;
+                }
+                setTimeout(ocultarCargando, 200);
+            };
+            imgHtml.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+}
 
 function vincularEventosProgresoFormulario() {}
 function calcularPorcentajeProgresoFormulario() {}
