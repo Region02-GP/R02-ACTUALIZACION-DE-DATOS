@@ -1065,128 +1065,92 @@ async function downloadAllDataMassive() {
     if (!db) return alert("La base de datos local aún no está lista.");
     
     btn.disabled = true; 
-    btn.innerText = "⏳ Descargando (No cierres la pantalla)...";
+    btn.innerText = "⚡ Descargando padrón...";
     progressContainer.style.display = "block";
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
-    progressBar.style.width = "5%";
+    progressBar.style.width = "15%";
+    if (progressLabel) progressLabel.innerText = "15% - Descargando archivo...";
+    progressText.innerText = "📡 Descargando padrón desde el servidor...";
 
-    let offset = 0, limit = 10000, isDone = false, totalCargados = 0, bloque = 1;
-    let segundos = 0;
-    let respuestaCrudaMuestra = "";
-
-    const reloj = setInterval(() => {
-        segundos++;
-        if (progressLabel) {
-            const pctActual = totalCargados === 0 ? "5%" : `${Math.min(95, Math.round((totalCargados / 50000) * 100))}%`;
-            progressLabel.innerText = `${pctActual} - Bloque ${bloque} (${segundos}s)`;
-        }
-    }, 1000);
-
-    db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear();
-    
     try {
-        while (!isDone) {
-            progressText.innerText = `📡 Pidiendo bloque ${bloque} a Google (${totalCargados} guardados)...`;
-            const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
-            const response = await fetch(url); 
-            const data = await response.json();
+        const response = await fetch(`./padron.json?_=${new Date().getTime()}`);
+        if (!response.ok) {
+            throw new Error("No se encontró el archivo padron.json en el repositorio.");
+        }
 
-            if (bloque === 1) {
-                respuestaCrudaMuestra = JSON.stringify(data).slice(0, 250);
-            }
+        progressBar.style.width = "50%";
+        if (progressLabel) progressLabel.innerText = "50% - Procesando datos...";
+        progressText.innerText = "⚙️ Procesando registros descargados...";
 
-            if (data && data.status === "error") {
-                throw new Error(data.message || "Error devuelto por Google Apps Script");
-            }
+        const registros = await response.json();
+        if (!Array.isArray(registros) || registros.length === 0) {
+            throw new Error("El archivo padron.json está vacío o tiene un formato inválido.");
+        }
 
-            // DETECTOR UNIVERSAL DE FORMATO DE RESPUESTA
-            let registros = [];
-            if (Array.isArray(data)) {
-                registros = data;
-            } else if (data && Array.isArray(data.records)) {
-                registros = data.records;
-            } else if (data && Array.isArray(data.data)) {
-                registros = data.data;
-            } else if (data && Array.isArray(data.rows) && Array.isArray(data.headers)) {
-                // Convierte formato matriz (headers + rows) a objetos
-                const headers = data.headers;
-                registros = data.rows.map(row => {
-                    const obj = {};
-                    headers.forEach((h, idx) => { obj[h] = row[idx]; });
-                    return obj;
-                });
-            }
-            
-            if (registros.length > 0) {
-                progressText.innerText = `💾 Guardando bloque ${bloque} (${registros.length} registros) en el teléfono...`;
-                const tx = db.transaction(STORE_NAME, "readwrite"); 
-                const store = tx.objectStore(STORE_NAME);
-                
-                registros.forEach(rawRecord => {
-                    if (!rawRecord) return;
-                    const record = {};
-                    let curpVal = "";
+        progressBar.style.width = "75%";
+        if (progressLabel) progressLabel.innerText = "75% - Guardando en teléfono...";
+        progressText.innerText = `💾 Guardando ${registros.length} registros en la memoria local...`;
 
-                    Object.keys(rawRecord).forEach(k => {
-                        const cleanKey = String(k).toUpperCase().trim();
-                        record[cleanKey] = rawRecord[k];
-                        if (cleanKey === "CURP") {
-                            curpVal = String(rawRecord[k] || "").replace(/ /g, "").toUpperCase().trim();
-                        }
-                    });
+        let totalCargados = 0;
 
-                    if (curpVal) {
-                        record.CURP = curpVal;
-                        store.put(record); 
-                        totalCargados++;
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            store.clear();
+
+            for (let i = 0; i < registros.length; i++) {
+                const rawRecord = registros[i];
+                if (!rawRecord) continue;
+
+                const cleanRecord = {};
+                let curpVal = "";
+
+                Object.keys(rawRecord).forEach(k => {
+                    const cleanKey = String(k).toUpperCase().trim();
+                    cleanRecord[cleanKey] = rawRecord[k];
+                    if (cleanKey === "CURP") {
+                        curpVal = String(rawRecord[k] || "").replace(/ /g, "").toUpperCase().trim();
                     }
                 });
-                await new Promise((resolve) => { tx.oncomplete = resolve; });
+
+                if (curpVal) {
+                    cleanRecord.CURP = curpVal;
+                    store.put(cleanRecord);
+                    totalCargados++;
+                }
             }
-            
-            // Si devolvió todo en un solo golpe (rows) o marcó done=true o no trajo más filas
-            isDone = (data && data.done === true) || (data && Array.isArray(data.rows)) || registros.length === 0; 
-            offset = (data && data.nextOffset) ? data.nextOffset : (offset + limit);
-            bloque++;
-            
-            const porcentaje = isDone ? 100 : Math.min(95, Math.round((totalCargados / 50000) * 100));
-            progressBar.style.width = `${Math.max(10, porcentaje)}%`;
-            if (progressLabel) progressLabel.innerText = `${porcentaje}% - ${totalCargados} guardados`;
-        }
-        
-        clearInterval(reloj);
+
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+
         progressBar.classList.remove('progress-bar-animated');
-
-        if (totalCargados === 0) {
-            progressBar.style.backgroundColor = "#b91c1c";
-            if (progressLabel) progressLabel.innerText = "0 REGISTROS";
-            progressText.innerText = "⚠️ Google respondió sin registros.";
-            alert(`⚠️ ALERTA: Google respondió pero no se encontraron registros.\n\nLo que respondió tu script fue:\n${respuestaCrudaMuestra}`);
-            return;
-        }
-
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = `100% - ${totalCargados} listos`;
-        progressText.innerText = `¡Descarga completa! ${totalCargados} registros listos.`;
-        
+        progressText.innerText = `🎉 ¡Descarga completa! ${totalCargados} registros listos.`;
+
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
-        alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros en tu teléfono.`); 
-        changeScreen('screen-search');
+
+        setTimeout(() => {
+            alert(`✅ ÉXITO: Se cargaron ${totalCargados} registros en segundos.`); 
+            changeScreen('screen-search');
+        }, 250);
+
     } catch (error) { 
-        clearInterval(reloj);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
         if (progressLabel) progressLabel.innerText = "ERROR";
         progressText.innerText = `❌ ${error.message}`;
-        alert(`Error: ${error.message}`); 
+        alert(`Error de descarga: ${error.message}`); 
     } finally { 
         btn.disabled = false; 
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 function preloadDatabaseToMemory() {
     if (!db) return;
