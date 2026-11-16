@@ -1062,154 +1062,63 @@ async function downloadAllDataMassive() {
     const progressLabel = document.getElementById('progress-percentage-label');
     const progressText = document.getElementById('progress-text');
     
-    if (!db) return alert("La base de datos aún no está lista.");
+    if (!db) return alert("La base de datos local aún no está lista.");
     
     btn.disabled = true; 
-    btn.innerText = "⚡ Descargando padrón...";
     progressContainer.style.display = "block";
     progressBar.classList.add('progress-bar-animated');
     progressBar.style.backgroundColor = "#621132";
+
+    let offset = 0, limit = 10000, isDone = false, totalCargados = 0;
+    db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear();
     
-    progressBar.style.width = "3%";
-    if (progressLabel) progressLabel.innerText = "3% - Conectando...";
-    progressText.innerText = "📡 Conectando con el servidor de Google...";
-
-    let offset = 0;
-    const limit = 2000;
-    const totalEstimado = 50000;
-    let isDone = false;
-    let totalCargados = 0;
-    let segundosEspera = 0;
-    let muestraDiagnostico = "";
-
-    const relojEspera = setInterval(() => {
-        segundosEspera++;
-        if (totalCargados === 0) {
-            const avanceVisual = Math.min(15, 3 + Math.floor(segundosEspera / 4));
-            progressBar.style.width = `${avanceVisual}%`;
-            if (progressLabel) progressLabel.innerText = `${avanceVisual}% - Leyendo hoja (${segundosEspera}s)...`;
-        }
-    }, 1000);
-
     try {
-        await new Promise((resolve, reject) => {
-            const clearTx = db.transaction(STORE_NAME, "readwrite");
-            clearTx.objectStore(STORE_NAME).clear();
-            clearTx.oncomplete = resolve;
-            clearTx.onerror = () => reject(clearTx.error);
-        });
-
         while (!isDone) {
-            progressText.innerText = `📡 Descargando filas ${offset + 1} a ${offset + limit}... (${totalCargados} guardados)`;
-            
+            progressText.innerText = `Descargando registros: ${totalCargados} acumulados...`;
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-            const response = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`El servidor respondió con código HTTP ${response.status}`);
-            }
-
+            const response = await fetch(url); 
             const data = await response.json();
-
-            if (data && data.status === "error") {
-                throw new Error(data.message || "Error interno en Google Apps Script");
-            }
-
-            const listaRegistros = data.records || [];
-            if (offset === 0) {
-                muestraDiagnostico = listaRegistros.length > 0 
-                    ? "Columnas detectadas: " + Object.keys(listaRegistros[0]).join(", ")
-                    : "Respuesta cruda: " + JSON.stringify(data).slice(0, 200);
-            }
-
-            if (listaRegistros.length > 0) {
-                progressText.innerText = `💾 Guardando bloque en el teléfono (${totalCargados + listaRegistros.length} registros)...`;
-
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction(STORE_NAME, "readwrite");
-                    const store = tx.objectStore(STORE_NAME);
-
-                    for (let i = 0; i < listaRegistros.length; i++) {
-                        const rawRecord = listaRegistros[i];
-                        if (!rawRecord) continue;
-
-                        const cleanRecord = {};
-                        let curpEncontrada = "";
-
-                        Object.keys(rawRecord).forEach(key => {
-                            const cleanKey = String(key).toUpperCase().trim();
-                            cleanRecord[cleanKey] = rawRecord[key];
-                            if (cleanKey === "CURP") {
-                                curpEncontrada = String(rawRecord[key] || "").replace(/[\s\u200B-\u200D\uFEFF]/g, "").toUpperCase().trim();
-                            }
-                        });
-
-                        if (curpEncontrada) {
-                            cleanRecord.CURP = curpEncontrada;
-                            store.put(cleanRecord);
-                            totalCargados++;
-                        }
+            
+            if (data && data.records && data.records.length > 0) {
+                const tx = db.transaction(STORE_NAME, "readwrite"); 
+                const store = tx.objectStore(STORE_NAME);
+                data.records.forEach(record => {
+                    if (record && record.CURP) {
+                        record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim(); 
+                        store.put(record); 
+                        totalCargados++;
                     }
-
-                    tx.oncomplete = resolve;
-                    tx.onerror = () => reject(tx.error);
                 });
+                await new Promise((resolve) => { tx.oncomplete = resolve; });
             }
-
-            isDone = data.done === true || listaRegistros.length === 0;
+            
+            isDone = data.done === true || data.records.length === 0; 
             offset = data.nextOffset || (offset + limit);
-
-            let porcentaje = isDone ? 100 : Math.min(98, Math.max(16, Math.round((totalCargados / totalEstimado) * 100)));
+            
+            const porcentaje = isDone ? 100 : Math.min(95, Math.round((offset / 50000) * 100));
             progressBar.style.width = `${porcentaje}%`;
-            if (progressLabel) progressLabel.innerText = `${porcentaje}% (${totalCargados} / ~50,000)`;
+            if (progressLabel) progressLabel.innerText = `${porcentaje}%`;
         }
         
-        clearInterval(relojEspera);
         progressBar.classList.remove('progress-bar-animated');
-
-        if (totalCargados === 0) {
-            progressBar.style.backgroundColor = "#b91c1c";
-            if (progressLabel) progressLabel.innerText = "0 REGISTROS";
-            progressText.innerText = "⚠️ La descarga terminó en 0 registros.";
-            alert(`⚠️ ALERTA: Se conectó al servidor pero se guardaron 0 registros.\n\nDiagnóstico:\n${muestraDiagnostico}`);
-            return;
-        }
-
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
-        if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
-        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros guardados en el dispositivo.`;
+        if (progressLabel) progressLabel.innerText = "100%";
+        progressText.innerText = `¡Descarga completa! ${totalCargados} registros listos.`;
         
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
-        
-        setTimeout(() => {
-            alert(`✅ DESCARGA EXITOSA: Se cargaron ${totalCargados} registros en el teléfono.`); 
-            changeScreen('screen-search');
-        }, 300);
-        
+        alert(`✅ ÉXITO: Se descargaron ${totalCargados} registros en tu teléfono.`); 
+        changeScreen('screen-search');
     } catch (error) { 
-        clearInterval(relojEspera);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
-        if (progressLabel) progressLabel.innerText = "ERROR";
-        
-        const mensajeError = error.name === 'AbortError' 
-            ? "Google tardó más de 2 minutos en responder. Verifica tu conexión a internet." 
-            : error.message;
-            
-        progressText.innerText = "❌ Error durante la descarga.";
-        alert(`Error de descarga: ${mensajeError}`); 
+        alert(`Error: ${error.message}`); 
     } finally { 
         btn.disabled = false; 
-        btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 
 let localMemoryDatabase = [];
