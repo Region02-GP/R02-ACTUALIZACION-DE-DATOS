@@ -1948,7 +1948,7 @@ async function syncWithSheets() {
     if (pendingSync.length === 0) return alert("No tienes registros pendientes de sincronizar en este momento.");
     
     const totalASincronizar = pendingSync.length;
-    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${totalASincronizar} registros y fotos.\n\nPor favor, no bloquees la pantalla durante el envío.`);
+    const confirmarSincronizacion = confirm(`🔄 TRANSMISIÓN EN CURSO: Se van a sincronizar ${totalASincronizar} registros y fotografías.\n\nPor favor, mantenga la pantalla encendida durante el envío.`);
     if (!confirmarSincronizacion) return;
 
     let enviadosExitosos = 0;
@@ -1958,15 +1958,28 @@ async function syncWithSheets() {
             const expedienteActual = pendingSync[0];
             enviadosExitosos++;
             
-            mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})`);
+            const tieneFotos = expedienteActual.DOC_INE_FRONTAL || expedienteActual.DOC_INE_TRASERA || expedienteActual.DOC_ACTA || expedienteActual.DOC_COMPROBANTE || expedienteActual.DOC_CURP;
+            const textoExtra = tieneFotos ? "\n📸 Subiendo documentos a Drive..." : "";
 
-            await fetch(GOOGLE_SCRIPT_URL, { 
+            mostrarCargando(`🚀 Enviando expediente ${enviadosExitosos} de ${totalASincronizar}...\n(${expedienteActual.CURP})${textoExtra}`);
+
+            // Sin 'no-cors' para leer la confirmación real de Google Apps Script
+            const response = await fetch(GOOGLE_SCRIPT_URL, { 
                 method: 'POST', 
-                mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                 body: JSON.stringify({ action: "sync", records: [expedienteActual] }) 
             });
 
+            if (!response.ok) {
+                throw new Error(`Error del servidor (HTTP ${response.status})`);
+            }
+
+            const resultado = await response.json();
+            if (resultado.status !== "success") {
+                throw new Error(resultado.message || "Google no confirmó el guardado.");
+            }
+
+            // Solo si Google confirmó "success", movemos el registro al historial sincronizado
             syncedHistory.push(expedienteActual);
             localStorage.setItem('syncedHistory', JSON.stringify(syncedHistory));
             
@@ -1978,12 +1991,13 @@ async function syncWithSheets() {
         
         ocultarCargando();
         openHistoryScreen(); 
-        alert(`🎉 ¡SINCRONIZACIÓN COMPLETADA!: Se subieron ${enviadosExitosos} expedientes correctamente.`); 
+        alert(`🎉 ¡SINCRONIZACIÓN COMPLETADA!: Se subieron ${enviadosExitosos} expedientes correctamente a Google Sheets y Drive.`); 
         
     } catch (e) { 
         ocultarCargando();
         openHistoryScreen();
-        alert(`⚠️ Transmisión interrumpida: Se lograron subir ${enviadosExitosos - 1} expedientes. Los restantes siguen guardados en su teléfono para intentarlo más tarde.`); 
+        const guardados = Math.max(0, enviadosExitosos - 1);
+        alert(`⚠️ Envío detenido en el expediente ${enviadosExitosos}: ${e.message}\n\nSe lograron guardar ${guardados} expedientes. Los restantes siguen seguros en tu teléfono para intentarlo más tarde.`); 
     }
 }
 
