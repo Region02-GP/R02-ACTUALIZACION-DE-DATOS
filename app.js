@@ -1075,7 +1075,7 @@ async function downloadAllDataMassive() {
     progressText.innerText = "📡 Conectando con base de 50,000 registros (puede tardar 1-2 min)...";
 
     let offset = 0;
-    const limit = 2000; // Bloques ligeros para evitar saturación en hojas de 50,000 filas
+    const limit = 2000;
     const totalEstimado = 50000;
     let isDone = false;
     let totalCargados = 0;
@@ -1103,7 +1103,6 @@ async function downloadAllDataMassive() {
             
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
             
-            // Tiempo límite de 120 segundos (2 minutos) por bloque
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 120000);
 
@@ -1144,7 +1143,6 @@ async function downloadAllDataMassive() {
             isDone = data.done === true || !data.records || data.records.length === 0;
             offset = data.nextOffset || (offset + limit);
 
-            // Cálculo real sobre 50,000 registros
             let porcentaje = isDone ? 100 : Math.min(98, Math.max(16, Math.round((totalCargados / totalEstimado) * 100)));
             progressBar.style.width = `${porcentaje}%`;
             if (progressLabel) progressLabel.innerText = `${porcentaje}% (${totalCargados} / ~50,000)`;
@@ -1183,6 +1181,13 @@ async function downloadAllDataMassive() {
     }
 }
 
+let localMemoryDatabase = [];
+function preloadDatabaseToMemory() {
+    if (!db) return;
+    db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (e) => { 
+        localMemoryDatabase = e.target.result || []; 
+    };
+}
 
 
 function searchData() {
