@@ -1072,7 +1072,7 @@ async function downloadAllDataMassive() {
     
     progressBar.style.width = "3%";
     if (progressLabel) progressLabel.innerText = "3% - Conectando...";
-    progressText.innerText = "📡 Conectando con base de 50,000 registros (puede tardar 1-2 min)...";
+    progressText.innerText = "📡 Conectando con el servidor de Google...";
 
     let offset = 0;
     const limit = 2000;
@@ -1080,6 +1080,7 @@ async function downloadAllDataMassive() {
     let isDone = false;
     let totalCargados = 0;
     let segundosEspera = 0;
+    let muestraDiagnostico = "";
 
     const relojEspera = setInterval(() => {
         segundosEspera++;
@@ -1119,18 +1120,38 @@ async function downloadAllDataMassive() {
                 throw new Error(data.message || "Error interno en Google Apps Script");
             }
 
-            if (data && data.records && data.records.length > 0) {
-                progressText.innerText = `💾 Guardando bloque en el teléfono (${totalCargados + data.records.length} registros)...`;
+            const listaRegistros = data.records || [];
+            if (offset === 0) {
+                muestraDiagnostico = listaRegistros.length > 0 
+                    ? "Columnas detectadas: " + Object.keys(listaRegistros[0]).join(", ")
+                    : "Respuesta cruda: " + JSON.stringify(data).slice(0, 200);
+            }
+
+            if (listaRegistros.length > 0) {
+                progressText.innerText = `💾 Guardando bloque en el teléfono (${totalCargados + listaRegistros.length} registros)...`;
 
                 await new Promise((resolve, reject) => {
                     const tx = db.transaction(STORE_NAME, "readwrite");
                     const store = tx.objectStore(STORE_NAME);
 
-                    for (let i = 0; i < data.records.length; i++) {
-                        const record = data.records[i];
-                        if (record && record.CURP) {
-                            record.CURP = String(record.CURP).replace(/ /g, "").toUpperCase().trim();
-                            store.put(record);
+                    for (let i = 0; i < listaRegistros.length; i++) {
+                        const rawRecord = listaRegistros[i];
+                        if (!rawRecord) continue;
+
+                        const cleanRecord = {};
+                        let curpEncontrada = "";
+
+                        Object.keys(rawRecord).forEach(key => {
+                            const cleanKey = String(key).toUpperCase().trim();
+                            cleanRecord[cleanKey] = rawRecord[key];
+                            if (cleanKey === "CURP") {
+                                curpEncontrada = String(rawRecord[key] || "").replace(/[\s\u200B-\u200D\uFEFF]/g, "").toUpperCase().trim();
+                            }
+                        });
+
+                        if (curpEncontrada) {
+                            cleanRecord.CURP = curpEncontrada;
+                            store.put(cleanRecord);
                             totalCargados++;
                         }
                     }
@@ -1140,7 +1161,7 @@ async function downloadAllDataMassive() {
                 });
             }
 
-            isDone = data.done === true || !data.records || data.records.length === 0;
+            isDone = data.done === true || listaRegistros.length === 0;
             offset = data.nextOffset || (offset + limit);
 
             let porcentaje = isDone ? 100 : Math.min(98, Math.max(16, Math.round((totalCargados / totalEstimado) * 100)));
@@ -1150,6 +1171,15 @@ async function downloadAllDataMassive() {
         
         clearInterval(relojEspera);
         progressBar.classList.remove('progress-bar-animated');
+
+        if (totalCargados === 0) {
+            progressBar.style.backgroundColor = "#b91c1c";
+            if (progressLabel) progressLabel.innerText = "0 REGISTROS";
+            progressText.innerText = "⚠️ La descarga terminó en 0 registros.";
+            alert(`⚠️ ALERTA: Se conectó al servidor pero se guardaron 0 registros.\n\nDiagnóstico:\n${muestraDiagnostico}`);
+            return;
+        }
+
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
@@ -1170,7 +1200,7 @@ async function downloadAllDataMassive() {
         if (progressLabel) progressLabel.innerText = "ERROR";
         
         const mensajeError = error.name === 'AbortError' 
-            ? "Google tardó más de 2 minutos en responder. Intenta con una conexión Wi-Fi más estable." 
+            ? "Google tardó más de 2 minutos en responder. Verifica tu conexión a internet." 
             : error.message;
             
         progressText.innerText = "❌ Error durante la descarga.";
@@ -1180,6 +1210,7 @@ async function downloadAllDataMassive() {
         btn.innerText = "📥 Descargar Derechohabientes";
     }
 }
+
 
 let localMemoryDatabase = [];
 function preloadDatabaseToMemory() {
