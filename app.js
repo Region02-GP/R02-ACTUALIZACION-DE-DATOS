@@ -1072,15 +1072,25 @@ async function downloadAllDataMassive() {
     
     progressBar.style.width = "5%";
     if (progressLabel) progressLabel.innerText = "5% - Conectando...";
-    progressText.innerText = "📡 Iniciando descarga desde Google Sheets...";
+    progressText.innerText = "📡 Conectando con el servidor de Google...";
 
     let offset = 0;
-    const limit = 10000;
+    const limit = 3500; // Bloques más ligeros para respuesta rápida de Google
     let isDone = false;
     let totalCargados = 0;
+    let segundosEspera = 0;
+
+    // Temporizador visual para confirmar que la conexión sigue viva mientras Google procesa
+    const relojEspera = setInterval(() => {
+        segundosEspera++;
+        if (totalCargados === 0) {
+            const avanceVisual = Math.min(25, 5 + Math.floor(segundosEspera / 2));
+            progressBar.style.width = `${avanceVisual}%`;
+            if (progressLabel) progressLabel.innerText = `${avanceVisual}% - Procesando en Google (${segundosEspera}s)...`;
+        }
+    }, 1000);
 
     try {
-        // Limpiamos la base local antes de recibir los bloques nuevos
         await new Promise((resolve, reject) => {
             const clearTx = db.transaction(STORE_NAME, "readwrite");
             clearTx.objectStore(STORE_NAME).clear();
@@ -1088,13 +1098,27 @@ async function downloadAllDataMassive() {
             clearTx.onerror = () => reject(clearTx.error);
         });
 
-        // Descarga paginada compatible con el doGet actual de Code.gs
         while (!isDone) {
-            progressText.innerText = `📡 Descargando bloque... (${totalCargados} registros acumulados)`;
+            progressText.innerText = `📡 Descargando bloque desde fila ${offset + 1}... (${totalCargados} guardados)`;
             
             const url = `${GOOGLE_SCRIPT_URL}?action=getAllData&offset=${offset}&limit=${limit}&_=${new Date().getTime()}`;
-            const response = await fetch(url);
+            
+            // Controlador de tiempo límite (60 segundos por bloque)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`El servidor respondió con código HTTP ${response.status}`);
+            }
+
             const data = await response.json();
+
+            if (data && data.status === "error") {
+                throw new Error(data.message || "Error interno en Google Apps Script");
+            }
 
             if (data && data.records && data.records.length > 0) {
                 progressText.innerText = `💾 Guardando ${data.records.length} registros en el teléfono...`;
@@ -1120,19 +1144,17 @@ async function downloadAllDataMassive() {
             isDone = data.done === true || !data.records || data.records.length === 0;
             offset = data.nextOffset || (offset + limit);
 
-            // Actualización visual de porcentaje estimado (hasta 95% antes de terminar)
-            let porcentaje = isDone ? 100 : Math.min(95, Math.round((totalCargados / 25000) * 100));
-            if (porcentaje < 10 && !isDone) porcentaje = 15;
-            
+            let porcentaje = isDone ? 100 : Math.min(95, Math.max(30, Math.round((totalCargados / 25000) * 100)));
             progressBar.style.width = `${porcentaje}%`;
             if (progressLabel) progressLabel.innerText = `${porcentaje}% - ${totalCargados} registros`;
         }
         
+        clearInterval(relojEspera);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#236947";
         progressBar.style.width = "100%";
         if (progressLabel) progressLabel.innerText = "100% COMPLETADO";
-        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros estatales guardados.`;
+        progressText.innerText = `🎉 ¡Listo! ${totalCargados} registros guardados.`;
         
         preloadDatabaseToMemory(); 
         updateLocalCounter(); 
@@ -1142,24 +1164,23 @@ async function downloadAllDataMassive() {
             changeScreen('screen-search');
         }, 300);
         
-       } catch (error) { 
+    } catch (error) { 
+        clearInterval(relojEspera);
         progressBar.classList.remove('progress-bar-animated');
         progressBar.style.backgroundColor = "#b91c1c";
         if (progressLabel) progressLabel.innerText = "ERROR";
+        
+        const mensajeError = error.name === 'AbortError' 
+            ? "Tiempo de espera agotado (60s). Verifica tu conexión a internet o el tamaño de la hoja." 
+            : error.message;
+            
         progressText.innerText = "❌ Error durante la descarga.";
-        alert(`Error de conexión: ${error.message}`); 
+        alert(`Error de descarga: ${mensajeError}`); 
     } finally { 
         btn.disabled = false; 
         btn.innerText = "📥 Descargar Derechohabientes";
     }
-} // <-- ESTA LLAVE ES LA QUE FALTA
-
-let localMemoryDatabase = [];
-function preloadDatabaseToMemory() {
-    if (!db) return;
-    db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (e) => { localMemoryDatabase = e.target.result || []; };
 }
-
 
 
 function searchData() {
