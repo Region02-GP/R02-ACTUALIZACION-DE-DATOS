@@ -1158,6 +1158,26 @@ function preloadDatabaseToMemory() {
         localMemoryDatabase = e.target.result || []; 
     };
 }
+function calcularEdadDesdeCURP(curp) {
+    const c = String(curp || "").trim().toUpperCase();
+    if (c.length < 10) return "";
+    const yy = parseInt(c.substring(4, 6), 10);
+    const mm = parseInt(c.substring(6, 8), 10) - 1;
+    const dd = parseInt(c.substring(8, 10), 10);
+    if (isNaN(yy) || isNaN(mm) || isNaN(dd)) return "";
+
+    // El carácter 17 de la CURP indica el siglo (0-9 = 1900s, A-Z = 2000s)
+    const charSiglo = c.length >= 17 ? c.charAt(16) : "";
+    const anioNacimiento = /[A-Z]/.test(charSiglo) ? 2000 + yy : 1900 + yy;
+
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - anioNacimiento;
+    const mesActual = hoy.getMonth();
+    if (mesActual < mm || (mesActual === mm && hoy.getDate() < dd)) {
+        edad--;
+    }
+    return (edad >= 0 && edad <= 125) ? edad : "";
+}
 
 let limiteResultados = 30;
 
@@ -1289,14 +1309,17 @@ function searchData(mantenerLimite = false) {
             textoIndicador = ' <span style="color:#137333; font-weight:bold; font-size:12px; margin-left:5px;">✓ Localizado</span>';
         }
 
-               div.className = claseColor;
+                    div.className = claseColor;
+
+        const edadCalculada = item['EDAD'] || calcularEdadDesdeCURP(item['CURP']);
+        const etiquetaEdad = edadCalculada !== "" ? ` | <strong>${edadCalculada} años</strong>` : "";
 
         div.innerHTML = `<div style="font-size:16px; font-weight:700; margin-bottom:2px;">${item['NOMBRE'] || ''} ${item['AP PATERNO'] || ''} ${item['AP MATERNO'] || ''}${textoIndicador}</div>
                          <div style="font-size:13px; font-weight:600; margin-bottom:4px; letter-spacing:0.3px;">
-                             CURP: ${item['CURP'] || 'SIN CURP'} | <span style="background-color:${badgeSeccionColor}; color:${badgeSeccionTextoColor}; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; display:inline-block; margin-left:2px;">SECCIÓN: ${item['SECCION_LIMPIA'] || 'S/S'}</span>
+                             CURP: ${item['CURP'] || 'SIN CURP'}${etiquetaEdad} | <span style="background-color:${badgeSeccionColor}; color:${badgeSeccionTextoColor}; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; display:inline-block; margin-left:2px;">SECCIÓN: ${item['SECCION_LIMPIA'] || 'S/S'}</span>
                          </div>
                          <div style="font-size:13px; opacity:0.9;">📍 Calle: ${item['CALLE'] || 'S/C'}, No. Ext: ${item['NUM EXT'] || 'S/N'}, Col. ${item['COLONIA'] || 'S/C'}</div>`;
-                         
+
         if (esFallecido) {
             div.onclick = (e) => { 
                 e.stopPropagation();
