@@ -1159,9 +1159,12 @@ function preloadDatabaseToMemory() {
     };
 }
 
+let limiteResultados = 30;
 
-function searchData() {
+function searchData(mantenerLimite = false) {
+    if (!mantenerLimite) limiteResultados = 30;
     const query = document.getElementById('search-input').value.toLowerCase().trim(); 
+
     const resultsContainer = document.getElementById('search-results');
     resultsContainer.innerHTML = ""; 
     if (query.length < 2) return;
@@ -1226,9 +1229,10 @@ function searchData() {
         return numA - numB;
     });
 
-          resultsContainer.innerHTML = "";
-    matchedRecords.slice(0, 30).forEach(item => {
-                      const div = document.createElement('div'); 
+         resultsContainer.innerHTML = "";
+    matchedRecords.slice(0, limiteResultados).forEach(item => {
+        const div = document.createElement('div'); 
+
         
         const estaEnColaPendiente = pendingSync.some(p => p['CURP'] === item['CURP']); 
         const recordEnCola = pendingSync.find(p => p['CURP'] === item['CURP']);
@@ -1302,12 +1306,23 @@ function searchData() {
             div.onclick = () => openForm(item); 
         }
         
-        resultsContainer.appendChild(div);
-
-
-
+            resultsContainer.appendChild(div);
     });
+
+    if (matchedRecords.length > limiteResultados) {
+        const restantes = matchedRecords.length - limiteResultados;
+        const btnMas = document.createElement('button');
+        btnMas.type = 'button';
+        btnMas.innerText = `➕ Mostrar más (${restantes} restantes)`;
+        btnMas.style.cssText = 'margin-top: 10px; background-color: #BC955C; color: #1F2937;';
+        btnMas.onclick = () => {
+            limiteResultados += 30;
+            searchData(true);
+        };
+        resultsContainer.appendChild(btnMas);
+    }
 }
+
 
 
 
